@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+logs/
+reports/
+data/store/
+data/raw/*.txt
+!data/raw/.gitkeep
+.idea/
+.venv/
+venv/

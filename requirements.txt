@@ -1,0 +1,28 @@
+# 核心 LLM / Agent 栈（建议与黑马课程项目版本一致；create_agent + agents.middleware 需 langchain 1.x）
+langchain>=1.0.0
+langchain-classic>=1.0.0          # 1.x 后 EnsembleRetriever/ContextualCompressionRetriever 在这里
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+langchain-text-splitters>=0.3.0
+langchain-chroma>=0.2.0
+langgraph>=0.2.0
+
+# 向量库 / 模型 (Tongyi / DashScope; DashScopeRerank 也走 dashscope)
+chromadb>=0.5.0
+dashscope>=1.20.0
+
+# 高级 RAG: 关键词检索 (BM25)
+rank_bm25>=0.2.2
+
+# 在线检索 (功能二): LangChain 官方 Tavily 工具
+langchain-tavily>=0.1.0
+
+# 配置 / 环境
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Web 后端 (FastAPI + SSE 流式)；前端 Next.js 在 web/ 下用 pnpm 管理
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+# 短期记忆: LangGraph checkpointer (SQLite)
+langgraph-checkpoint-sqlite>=2.0.0

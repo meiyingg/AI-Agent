@@ -1,0 +1,67 @@
+# ============================================================
+# 企业智能助手 - 全局配置
+# 主：高级 RAG (混合检索 + 重排)  辅：Tavily 实时联网
+# ============================================================
+
+model:
+  chat_model_name: qwen-max                  # 快模型: 分诊/路由/结构化报告 (Tongyi)
+  reasoning_model_name: qwq-plus             # 推理模型: 展示原生思考链(reasoning_content)的 Agent 用
+  embedding_model_name: text-embedding-v4    # 向量化模型 (DashScope)
+
+paths:
+  meetings_dir: data/samples                 # 内部文档/会议纪要 (txt/md)
+  store_dir: data/store
+  chroma_dir: data/store/chroma              # 向量库 (仅存内部文档)
+  meeting_md5_ledger: data/store/meeting_md5.txt   # 文件 MD5 去重台账
+  eval_qa: data/eval/qa.jsonl                # 检索评测问答集
+  memory_db: data/store/memory.sqlite        # 短期记忆: LangGraph checkpointer (会话历史)
+  profile_json: data/store/profile.json      # 长期记忆: 全局企业档案 (跨会话, 单一档案)
+  threads_json: data/store/threads.json      # 会话注册表 (历史会话列表: id/标题/时间)
+  reports_dir: reports
+  logs_dir: logs
+
+rag:
+  meeting_collection: meetings
+  chunk_size: 500
+  chunk_overlap: 50
+  separators: ["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
+  top_k: 4                                    # 最终返回给 LLM 的片段数
+  hybrid_top_k: 8                             # 混合检索初召回数 (重排前)
+  bm25_weight: 0.3                            # 关键词检索权重
+  vector_weight: 0.7                          # 语义检索权重
+
+rerank:
+  enabled: true
+  model: gte-rerank                           # DashScope 重排模型
+  top_n: 4                                     # 重排后保留数
+
+search:
+  max_results: 5                              # Tavily 单次返回条数
+
+eval:
+  k: 5                                         # Recall@k
+
+agent:
+  system_prompt_path: prompts/agent_system.txt
+  report_prompt_path: prompts/report.txt
+  rag_prompt_path: prompts/rag_summarize.txt
+  max_iterations: 8
+
+# 多 Agent 投资顾问 (Supervisor 架构)
+multiagent:
+  max_rounds: 6          # 子Agent 调度最大轮数 (防死循环)
+  min_workers: 2         # 出建议前至少要调研的子Agent数 (防止啥都没查就出建议)
+  recursion_limit: 25    # LangGraph 递归上限
+
+# 记忆 (短期=会话历史 checkpointer; 长期=全局企业档案)
+memory:
+  short_term: true       # 会话内多轮记忆 (按 thread_id 续上)
+  profile_inject: true   # 长期档案注入 general + advisor 提示词 (个性化)
+  profile_max_facts: 12  # 全局档案事实条数上限 (防膨胀)
+  auto_extract: false    # 对话结束自动提炼事实 (阶段3b; 先 false 求稳)
+
+# 健壮性
+robust:
+  cache_enabled: true
+  retry_times: 3
+  retry_delay: 1.0       # 秒, 指数退避基数
