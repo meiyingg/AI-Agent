@@ -43,6 +43,7 @@ class InvestState(TypedDict):
     analysis_notes: str
     visited: Annotated[list[str], _visited_reducer]  # 每轮重置 (本轮已调研的子Agent)
     recommendation: dict
+    findings: dict                                   # 调研详情(给报告/PDF附录)
 
 
 WORKERS = {"knowledge": "internal_notes", "research": "research_notes", "analysis": "analysis_notes"}
@@ -107,15 +108,15 @@ def general_node(state: InvestState) -> dict:
         kind = ev[0]
         if kind == "reasoning":
             nreason += 1
-            emit_event({"type": "reasoning", "agent": "通用助手", "delta": ev[1]})
+            emit_event({"type": "reasoning", "agent": "general", "delta": ev[1]})
         elif kind == "token":
             ntok += 1
             emit_event({"type": "token", "content": ev[1]})
         elif kind == "tool":
             logger.info(f"[general] 调用工具 {ev[1]} 入参={ev[2]}")
-            emit_event({"type": "tool", "agent": "通用助手", "tool": ev[1], "args": ev[2]})
+            emit_event({"type": "tool", "agent": "general", "tool": ev[1], "args": ev[2]})
         elif kind == "result":
-            emit_event({"type": "tool_result", "agent": "通用助手", "tool": ev[1], "preview": ev[2]})
+            emit_event({"type": "tool_result", "agent": "general", "tool": ev[1], "preview": ev[2]})
         elif kind == "final":
             answer = ev[1]
     logger.info(f"[general] 思考链块={nreason}, 答案 token={ntok}")
@@ -125,54 +126,45 @@ def general_node(state: InvestState) -> dict:
 
 
 @retry()
-def _llm_route(query: str, options: list[str]) -> str:
-    desc = "knowledge=内部知识, research=行业调研, analysis=量化分析, advisor=出建议"
+def _select_experts(query: str) -> list[str]:
+    """Supervisor 一次性选出本次要【并行】调用的专家。
+
+    默认 research+analysis；仅当问题明确涉及内部纪要/会员经验时才加 knowledge。
+    """
     resp = chat_model.invoke(
-        f"企业问题：{query}\n候选下一步：{options}（{desc}）。\n"
-        f"只回一个英文词，从 {options} 中选当前最该做的一步："
+        "投资决策问题，选择要【并行】调用的专家。\n"
+        "默认只用 research(行业调研/联网) + analysis(量化分析)；\n"
+        "仅当问题明确涉及【商会内部纪要/会员经验/已有决议】时，才再加 knowledge(内部纪要)。\n"
+        f"问题：{query}\n回英文键(逗号分隔)："
     ).content.strip().lower()
-    return resp
+    picked = [w for w in WORKERS if w in resp]
+    for w in ("research", "analysis"):       # 至少 research + analysis
+        if w not in picked:
+            picked.append(w)
+    return picked
 
 
-def supervisor_node(state: InvestState) -> Command[Literal["knowledge", "research", "analysis", "advisor"]]:
-    visited = state.get("visited", [])
-    remaining = [w for w in WORKERS if w not in visited]
-    max_rounds = multiagent_conf.get("max_rounds", 6)
-    min_workers = multiagent_conf.get("min_workers", 2)
-
-    # 没有可调的子Agent了 / 达上限 -> 出建议
-    if not remaining or len(visited) >= max_rounds:
-        logger.info(f"[Supervisor] 调研完毕 -> advisor (已访问:{visited})")
-        emit_event({"type": "route", "to": "advisor", "label": "调研充分 → 生成投资建议"})
-        return Command(goto="advisor")
-
-    # 调研不足 min_workers 时，禁止过早出 advisor，只在子Agent里选
-    allow_advisor = len(visited) >= min_workers
-    options = remaining + (["advisor"] if allow_advisor else [])
-
+def supervisor_node(state: InvestState) -> Command:
+    """一次性决策并【并行】派发专家 → 汇到 advisor (不再串行循环, 大幅提速)。"""
     try:
-        resp = _llm_route(state["query"], options)
-        nxt = next((w for w in options if w in resp), remaining[0])
+        experts = _select_experts(state["query"])
     except Exception as e:
-        logger.warning(f"[Supervisor] 路由失败, 规则兜底: {e}")
-        nxt = remaining[0]
-
-    logger.info(f"[Supervisor] 路由 -> {nxt} (已访问:{visited})")
-    if nxt == "advisor":
-        emit_event({"type": "route", "to": "advisor", "label": "调研充分 → 生成投资建议"})
-    else:
-        emit_event({"type": "route", "to": nxt, "label": f"Supervisor 派单 → {_LABEL[nxt]}"})
-    return Command(goto=nxt)
+        logger.warning(f"[Supervisor] 选专家失败, 默认 research+analysis: {e}")
+        experts = ["research", "analysis"]
+    labels = "、".join(_LABEL[w] for w in experts)
+    logger.info(f"[Supervisor] 并行派发 -> {experts}")
+    emit_event({"type": "route", "to": "parallel", "label": f"并行调度 → {labels}"})
+    return Command(goto=experts)
 
 
 def _worker(name: str, runner):
     label = _LABEL[name]
 
-    def node(state: InvestState) -> Command[Literal["supervisor"]]:
+    def node(state: InvestState) -> dict:
         _phase(name, label, "running")
-        notes = runner(state["query"])           # 子Agent内部会经 emit_event 推送 tool 事件
-        _phase(name, label, "done", detail=notes)  # 把该专家的结论带上(供前端展开查看)
-        return Command(goto="supervisor", update={WORKERS[name]: notes, "visited": [name]})
+        notes = runner(state["query"])           # 子Agent内部会经 emit_event 推送 reasoning/tool
+        _phase(name, label, "done", detail=notes)  # 该专家结论(供前端展开)
+        return {WORKERS[name]: notes}              # 并行: 各写各的 notes, 无需回 supervisor
 
     node.__name__ = f"{name}_node"
     return node
@@ -187,7 +179,13 @@ def advisor_node(state: InvestState) -> dict:
     _phase("advisor", "汇总投资建议", "running")
     advice = build_advice(state)
     _phase("advisor", "汇总投资建议", "done")
-    return {"recommendation": advice, "messages": [AIMessage(content=format_advice_md(advice))]}
+    findings = {
+        "research": state.get("research_notes", ""),
+        "analysis": state.get("analysis_notes", ""),
+        "internal": state.get("internal_notes", ""),
+    }
+    return {"recommendation": advice, "findings": findings,
+            "messages": [AIMessage(content=format_advice_md(advice))]}
 
 
 def _make_checkpointer():
@@ -217,6 +215,9 @@ def build_graph(checkpointer=None):
     g.add_node("advisor", advisor_node)
     g.add_edge(START, "triage")
     g.add_edge("general", END)
+    g.add_edge("knowledge", "advisor")  # 并行专家 → advisor 汇合(join)
+    g.add_edge("research", "advisor")
+    g.add_edge("analysis", "advisor")
     g.add_edge("advisor", END)
     return g.compile(checkpointer=checkpointer)
 
@@ -275,7 +276,8 @@ class InvestmentAdvisor:
                                "content": update["messages"][-1].content}
                     elif node == "advisor" and update.get("messages"):
                         yield {"type": "final", "content": update["messages"][-1].content,
-                               "report": update.get("recommendation")}
+                               "report": update.get("recommendation"),
+                               "findings": update.get("findings")}
         yield {"type": "done"}
 
     def execute_stream(self, query: str, thread_id: str = None):

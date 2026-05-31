@@ -55,8 +55,11 @@ def _build_analysis():
     )
 
 
-def _run(agent, instruction: str, label: str) -> str:
-    """流式执行子Agent：原生思考链(reasoning) + 工具(入参) + 可读返回 + 结论，经 emit_event 推送。"""
+def _run(agent, instruction: str, key: str) -> str:
+    """流式执行子Agent：原生思考链(reasoning) + 工具(入参) + 可读返回 + 结论，经 emit_event 推送。
+
+    key = 该专家的状态键(research/analysis/knowledge)，前端据此把事件归到对应步骤(并行时不串)。
+    """
     final = ""
     for mode, data in agent.stream(
         {"messages": [{"role": "user", "content": instruction}]},
@@ -66,7 +69,7 @@ def _run(agent, instruction: str, label: str) -> str:
             chunk = data[0] if isinstance(data, tuple) else data
             rc = (getattr(chunk, "additional_kwargs", {}) or {}).get("reasoning_content")
             if isinstance(rc, str) and rc:
-                emit_event({"type": "reasoning", "agent": label, "delta": rc})
+                emit_event({"type": "reasoning", "agent": key, "delta": rc})
         elif mode == "updates":
             for _node, upd in (data or {}).items():
                 if not isinstance(upd, dict):
@@ -75,10 +78,10 @@ def _run(agent, instruction: str, label: str) -> str:
                     mtype = getattr(msg, "type", None)
                     content = getattr(msg, "content", "") or ""
                     for tc in getattr(msg, "tool_calls", None) or []:   # 工具调用 + 入参
-                        emit_event({"type": "tool", "agent": label, "tool": tc.get("name", ""),
+                        emit_event({"type": "tool", "agent": key, "tool": tc.get("name", ""),
                                     "args": tc.get("args", {})})
                     if mtype == "tool":                                  # 工具返回(可读)
-                        emit_event({"type": "tool_result", "agent": label,
+                        emit_event({"type": "tool_result", "agent": key,
                                     "tool": getattr(msg, "name", ""),
                                     "preview": summarize_tool_result(str(content))})
                     if mtype == "ai" and content and not getattr(msg, "tool_calls", None):
@@ -91,7 +94,7 @@ def run_research(query: str) -> str:
     global _research
     if _research is None:
         _research = _build_research()
-    return _run(_research, f"针对企业问题：{query}\n请联网检索相关行业/政策/市场最新动态，给出要点与来源。", "行业调研")
+    return _run(_research, f"针对企业问题：{query}\n请联网检索相关行业/政策/市场最新动态，给出要点与来源。", "research")
 
 
 @degrade("（内部知识环节暂无结果）")
@@ -99,7 +102,7 @@ def run_knowledge(query: str) -> str:
     global _knowledge
     if _knowledge is None:
         _knowledge = _build_knowledge()
-    return _run(_knowledge, f"针对企业问题：{query}\n请检索商会内部资料，给出相关内部信息要点。", "内部知识")
+    return _run(_knowledge, f"针对企业问题：{query}\n请检索商会内部资料，给出相关内部信息要点。", "knowledge")
 
 
 @degrade("（量化分析环节暂无结果）")
@@ -107,4 +110,4 @@ def run_analysis(query: str) -> str:
     global _analysis
     if _analysis is None:
         _analysis = _build_analysis()
-    return _run(_analysis, f"针对企业问题：{query}\n请调用分析工具给出市场/ROI/风险/方案对比等量化结论。", "量化分析")
+    return _run(_analysis, f"针对企业问题：{query}\n请调用分析工具给出市场/ROI/风险/方案对比等量化结论。", "analysis")
