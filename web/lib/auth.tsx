@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { login as apiLogin } from "@/lib/api";
 
 export interface User {
   name: string;
@@ -10,12 +11,13 @@ export interface User {
 interface Ctx {
   user: User | null;
   ready: boolean;
-  login: (name: string) => void;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
 
 const AuthContext = createContext<Ctx | null>(null);
 const KEY = "mia.user";
+const CODE_KEY = "mia.code";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -31,20 +33,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setReady(true);
   }, []);
 
-  function login(name: string) {
-    const u: User = { name: name.trim() || "Admin", role: "Investment Committee" };
+  async function login(username: string, password: string): Promise<boolean> {
+    const ok = await apiLogin(username, password);
+    if (!ok) return false;
+    const u: User = { name: username.trim() || "admin", role: "Investment Committee" };
     setUser(u);
     try {
       localStorage.setItem(KEY, JSON.stringify(u));
+      localStorage.setItem(CODE_KEY, password); // api.ts 取它作为 X-Access-Code 头
     } catch {
       /* ignore */
     }
+    return true;
   }
 
   function logout() {
     setUser(null);
     try {
       localStorage.removeItem(KEY);
+      localStorage.removeItem(CODE_KEY);
     } catch {
       /* ignore */
     }

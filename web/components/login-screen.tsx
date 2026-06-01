@@ -1,12 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { Brain, ArrowRight, Database, MessageSquare, Cpu } from "lucide-react";
+import { Brain, ArrowRight, Database, MessageSquare, Cpu, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 export function LoginScreen() {
   const { login } = useAuth();
-  const [name, setName] = useState("Admin");
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    const ok = await login(username, password);
+    if (!ok) {
+      setError("Wrong username or password");
+      setLoading(false);
+    }
+    // on success the app re-renders (user is set) and this screen unmounts
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
@@ -23,17 +38,34 @@ export function LoginScreen() {
 
         <label className="mb-1.5 block text-xs text-muted-foreground">Username</label>
         <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && login(name)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
           className="mb-3 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-          placeholder="Enter any name"
+          placeholder="admin"
         />
+        <label className="mb-1.5 block text-xs text-muted-foreground">Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          className="mb-3 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+          placeholder="••••••••"
+        />
+        {error && <p className="mb-3 text-xs text-rose-500">{error}</p>}
         <button
-          onClick={() => login(name)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          onClick={submit}
+          disabled={loading}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
         >
-          Enter Console <ArrowRight className="size-4" />
+          {loading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <>
+              Enter Console <ArrowRight className="size-4" />
+            </>
+          )}
         </button>
 
         <div className="mt-6 flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
@@ -47,7 +79,6 @@ export function LoginScreen() {
             <Cpu className="size-3" /> Reasoning
           </span>
         </div>
-        <p className="mt-4 text-center text-[11px] text-muted-foreground">Demo environment · mock login, no password</p>
       </div>
     </div>
   );

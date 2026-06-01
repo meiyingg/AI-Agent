@@ -2,6 +2,33 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
+function accessCode(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("mia.code") || "";
+}
+
+// 所有后端请求都带访问口令头(后端校验)。内部用 fetch(API_BASE + path)，避免被下方批量替换误伤。
+function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const code = accessCode();
+  if (code) headers.set("X-Access-Code", code);
+  return fetch(API_BASE + path, { ...init, headers });
+}
+
+/** 登录：校验账号口令，成功返回 true。本地未配置口令时后端直接放行。 */
+export async function login(username: string, password: string): Promise<boolean> {
+  try {
+    const r = await apiFetch(`/api/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export interface Report {
   summary: string;
   decision: string;
@@ -44,7 +71,7 @@ export async function streamChat(
   onEvent: (e: ChatEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/chat`, {
+  const res = await apiFetch(`/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, thread_id: threadId }),
@@ -96,12 +123,12 @@ export interface Profile {
 }
 
 export async function getMemory(): Promise<Profile> {
-  const r = await fetch(`${API_BASE}/api/memory`);
+  const r = await apiFetch(`/api/memory`);
   return r.json();
 }
 
 export async function putMemory(p: Partial<Profile>): Promise<Profile> {
-  const r = await fetch(`${API_BASE}/api/memory`, {
+  const r = await apiFetch(`/api/memory`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(p),
@@ -119,7 +146,7 @@ export interface Thread {
 
 export async function listThreads(): Promise<Thread[]> {
   try {
-    const r = await fetch(`${API_BASE}/api/threads`);
+    const r = await apiFetch(`/api/threads`);
     return r.json();
   } catch {
     return [];
@@ -132,7 +159,7 @@ export interface ThreadDetail {
 }
 
 export async function getThread(id: string): Promise<ThreadDetail> {
-  const r = await fetch(`${API_BASE}/api/threads/${id}`);
+  const r = await apiFetch(`/api/threads/${id}`);
   return r.json();
 }
 
@@ -158,7 +185,7 @@ export interface KbUploadResult {
 export async function uploadKb(files: File[]): Promise<KbUploadResult[]> {
   const fd = new FormData();
   files.forEach((f) => fd.append("files", f));
-  const r = await fetch(`${API_BASE}/api/kb/upload`, { method: "POST", body: fd });
+  const r = await apiFetch(`/api/kb/upload`, { method: "POST", body: fd });
   if (!r.ok) {
     throw new Error(`Upload failed HTTP ${r.status} (the backend may not have been restarted, missing the /api/kb/upload endpoint)`);
   }
@@ -168,7 +195,7 @@ export async function uploadKb(files: File[]): Promise<KbUploadResult[]> {
 
 export async function listKbDocs(): Promise<KbDoc[]> {
   try {
-    const r = await fetch(`${API_BASE}/api/kb/docs`);
+    const r = await apiFetch(`/api/kb/docs`);
     const d = await r.json();
     return d.docs || [];
   } catch {
@@ -177,12 +204,12 @@ export async function listKbDocs(): Promise<KbDoc[]> {
 }
 
 export async function deleteKbDoc(id: string): Promise<void> {
-  await fetch(`${API_BASE}/api/kb/docs/${id}`, { method: "DELETE" });
+  await apiFetch(`/api/kb/docs/${id}`, { method: "DELETE" });
 }
 
 export async function getKbDocText(id: string): Promise<string> {
   try {
-    const r = await fetch(`${API_BASE}/api/kb/docs/${id}/content`);
+    const r = await apiFetch(`/api/kb/docs/${id}/content`);
     if (!r.ok) return "";
     const d = await r.json();
     return d.text || "";
@@ -192,7 +219,7 @@ export async function getKbDocText(id: string): Promise<string> {
 }
 
 export async function getKbJob(jobId: string): Promise<{ status: string; doc?: KbDoc; error?: string }> {
-  const r = await fetch(`${API_BASE}/api/kb/jobs/${jobId}`);
+  const r = await apiFetch(`/api/kb/jobs/${jobId}`);
   return r.json();
 }
 
@@ -203,7 +230,7 @@ export interface KbChunk {
 
 export async function searchKb(query: string): Promise<KbChunk[]> {
   try {
-    const r = await fetch(`${API_BASE}/api/kb/search`, {
+    const r = await apiFetch(`/api/kb/search`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query }),
@@ -226,7 +253,7 @@ export interface Stats {
 
 export async function getStats(): Promise<Stats | null> {
   try {
-    const r = await fetch(`${API_BASE}/api/stats`);
+    const r = await apiFetch(`/api/stats`);
     if (!r.ok) return null;
     return r.json();
   } catch {
@@ -243,7 +270,7 @@ export interface AppSettings {
 
 export async function getSettings(): Promise<AppSettings | null> {
   try {
-    const r = await fetch(`${API_BASE}/api/settings`);
+    const r = await apiFetch(`/api/settings`);
     if (!r.ok) return null;
     return r.json();
   } catch {
@@ -252,7 +279,7 @@ export async function getSettings(): Promise<AppSettings | null> {
 }
 
 export async function putSettings(section: string, patch: Record<string, unknown>): Promise<void> {
-  await fetch(`${API_BASE}/api/settings`, {
+  await apiFetch(`/api/settings`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ section, patch }),
@@ -261,7 +288,7 @@ export async function putSettings(section: string, patch: Record<string, unknown
 
 export async function health(): Promise<boolean> {
   try {
-    const r = await fetch(`${API_BASE}/api/health`);
+    const r = await apiFetch(`/api/health`);
     return r.ok;
   } catch {
     return false;
@@ -284,7 +311,7 @@ export interface ReportDetail extends ReportSummary {
 
 export async function listReports(): Promise<ReportSummary[]> {
   try {
-    const r = await fetch(`${API_BASE}/api/reports`);
+    const r = await apiFetch(`/api/reports`);
     if (!r.ok) return [];
     return r.json();
   } catch {
@@ -294,7 +321,7 @@ export async function listReports(): Promise<ReportSummary[]> {
 
 export async function getReport(id: string): Promise<ReportDetail | null> {
   try {
-    const r = await fetch(`${API_BASE}/api/reports/${id}`);
+    const r = await apiFetch(`/api/reports/${id}`);
     const d = await r.json();
     return d && d.id ? d : null;
   } catch {
@@ -303,5 +330,5 @@ export async function getReport(id: string): Promise<ReportDetail | null> {
 }
 
 export async function deleteReport(id: string): Promise<void> {
-  await fetch(`${API_BASE}/api/reports/${id}`, { method: "DELETE" });
+  await apiFetch(`/api/reports/${id}`, { method: "DELETE" });
 }

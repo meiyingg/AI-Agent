@@ -1,0 +1,18 @@
+# Render Blueprint: one-shot backend deploy.
+# Render dashboard → New → Blueprint → pick this repo → fill the two keys when prompted.
+services:
+  - type: web
+    name: chamber-advisor-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DASHSCOPE_API_KEY
+        sync: false      # prompted in the dashboard, never stored in the repo
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: APP_USER
+        value: admin     # login username (not secret)
+      - key: APP_PASSWORD
+        sync: false      # login password — set in the dashboard; gate is OFF if blank

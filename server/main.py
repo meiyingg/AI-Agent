@@ -23,7 +23,7 @@ if _ROOT not in sys.path:
 
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 
 from src.graph.supervisor import InvestmentAdvisor
@@ -37,7 +37,7 @@ from src.utils.config import (
 )
 from src.utils.logger import logger
 
-app = FastAPI(title="商会企业投资顾问 API", version="1.0")
+app = FastAPI(title="Chamber Investment Advisor API", version="1.0")
 
 # 开发期放开跨域 (前端 :3000 调后端 :8000)
 app.add_middleware(
@@ -46,6 +46,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---- 访问口令：保护后端，防止公网被人直接刷 API / 烧 quota ----
+# 仅当设置了环境变量 APP_PASSWORD 时启用；未设则放行(本地开发不受影响)。
+# 口令值放在部署平台(Render)的环境变量里，绝不写进代码库。
+APP_USER = os.getenv("APP_USER", "admin")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+_OPEN_PATHS = {"/api/health", "/api/login"}
+
+
+@app.middleware("http")
+async def _access_gate(request, call_next):
+    if APP_PASSWORD and request.method != "OPTIONS":
+        p = request.url.path
+        if p.startswith("/api/") and p not in _OPEN_PATHS:
+            if request.headers.get("X-Access-Code") != APP_PASSWORD:
+                # 本中间件在 CORS 外层，手动补 CORS 头，确保浏览器能读到这个 401
+                return JSONResponse(
+                    {"detail": "Unauthorized"}, status_code=401,
+                    headers={"Access-Control-Allow-Origin": "*"},
+                )
+    return await call_next(request)
+
+
+class LoginReq(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/api/login")
+def login(req: LoginReq):
+    """校验账号口令。未配置 APP_PASSWORD 时(本地)直接放行。"""
+    if APP_PASSWORD and (req.username != APP_USER or req.password != APP_PASSWORD):
+        return JSONResponse({"ok": False, "detail": "Wrong username or password"}, status_code=401)
+    return {"ok": True}
+
 
 # 单例：持有 checkpointer(短期记忆)与图，进程内复用
 advisor = InvestmentAdvisor()
@@ -267,6 +302,21 @@ def del_report(rid: str):
 @app.get("/api/health")
 def health():
     return {"ok": True}
+
+
+@app.on_event("startup")
+def _bootstrap_kb():
+    """部署首启：后台把示例语料(data/samples)灌入向量库，让"内部知识"演示有内容。
+
+    幂等：已入库的内容按 MD5 跳过；后台线程执行，不阻塞启动；失败仅记日志(不崩)。
+    """
+    def _run():
+        try:
+            from src.rag.meeting_kb import MeetingKB
+            logger.info(f"[startup] KB ingest: {MeetingKB().ingest()}")
+        except Exception as e:
+            logger.warning(f"[startup] KB ingest skipped: {e}")
+    threading.Thread(target=_run, daemon=True).start()
 
 
 if __name__ == "__main__":

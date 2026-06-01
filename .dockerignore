@@ -1,0 +1,12 @@
+# Backend image doesn't need the frontend or any runtime state.
+.git
+.gitignore
+.env
+.env.example
+web/
+data/store/
+logs/
+**/__pycache__/
+*.pyc
+*.md
+.vercel
