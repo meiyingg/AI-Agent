@@ -13,13 +13,15 @@ import os
 import sys
 import json
 import uuid
+import shutil
+import threading
 
 # 把项目根加入 sys.path, 保证无论从哪启动都能 import src / server
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -27,6 +29,11 @@ from pydantic import BaseModel
 from src.graph.supervisor import InvestmentAdvisor
 from src.memory.profile import load_profile, save_profile
 from src.memory.threads import list_threads, touch_thread
+from src.rag.kb_service import kind_of, process_upload, list_docs, delete_doc
+from src.utils.config import (
+    abs_of, update_settings,
+    model_conf, memory_conf, multiagent_conf, kb_conf,
+)
 from src.utils.logger import logger
 
 app = FastAPI(title="商会企业投资顾问 API", version="1.0")
@@ -104,6 +111,106 @@ def get_thread(thread_id: str):
             for m in msgs if getattr(m, "content", "")
         ],
     }
+
+
+# ============================================================
+# 知识库上传 (公司内部资料 → RAG)
+# ============================================================
+KB_JOBS: dict = {}   # job_id -> {id, name, kind, status, error?, doc?}
+
+
+def _kb_job(job_id: str, raw_path: str, name: str):
+    """后台任务：音视频转写 + 入库(慢)。"""
+    try:
+        doc = process_upload(raw_path, name)
+        KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "done", "doc": doc}
+    except Exception as e:
+        logger.exception(f"[KB] 后台处理失败 {name}")
+        KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "error", "error": str(e)}
+
+
+@app.post("/api/kb/upload")
+async def kb_upload(files: list[UploadFile] = File(...)):
+    """上传文件入知识库。文档同步入库；音视频转后台任务(返回 job_id 轮询)。"""
+    up_dir = abs_of("uploads_dir")
+    os.makedirs(up_dir, exist_ok=True)
+    results = []
+    for f in files:
+        name = f.filename or "file"
+        kind = kind_of(name)
+        if not kind:
+            results.append({"name": name, "status": "error", "error": "不支持的文件类型"})
+            continue
+        raw_path = os.path.join(up_dir, f"{uuid.uuid4().hex[:8]}_{os.path.basename(name)}")
+        with open(raw_path, "wb") as out:
+            shutil.copyfileobj(f.file, out)        # 流式落盘, 大文件也不爆内存
+        if kind == "doc":
+            try:
+                doc = process_upload(raw_path, name)
+                results.append({"name": name, "status": "done", "doc": doc})
+            except Exception as e:
+                logger.exception(f"[KB] 文档处理失败 {name}")
+                results.append({"name": name, "status": "error", "error": str(e)})
+        else:                                       # 音视频 → 后台转写
+            job_id = uuid.uuid4().hex[:10]
+            KB_JOBS[job_id] = {"id": job_id, "name": name, "kind": kind, "status": "processing"}
+            threading.Thread(target=_kb_job, args=(job_id, raw_path, name), daemon=True).start()
+            results.append({"name": name, "status": "processing", "job_id": job_id, "kind": kind})
+    return {"results": results}
+
+
+@app.get("/api/kb/jobs/{job_id}")
+def kb_job_status(job_id: str):
+    return KB_JOBS.get(job_id, {"id": job_id, "status": "unknown"})
+
+
+@app.get("/api/kb/docs")
+def kb_list():
+    return {"docs": list_docs()}
+
+
+@app.delete("/api/kb/docs/{doc_id}")
+def kb_delete(doc_id: str):
+    delete_doc(doc_id)
+    return {"ok": True}
+
+
+# ============================================================
+# 概览统计 + 设置
+# ============================================================
+@app.get("/api/stats")
+def get_stats():
+    docs = list_docs()
+    prof = load_profile()
+    return {
+        "kb": {
+            "files": len(docs),
+            "chars": sum(d.get("chars", 0) for d in docs),
+            "chunks": sum(d.get("chunks", 0) for d in docs),
+        },
+        "threads": len(list_threads()),
+        "profile": {"has": bool(prof.get("profile")), "facts": len(prof.get("facts") or [])},
+        "models": {
+            "chat": model_conf.get("chat_model_name"),
+            "reasoning": model_conf.get("reasoning_model_name"),
+            "embedding": model_conf.get("embedding_model_name"),
+        },
+    }
+
+
+@app.get("/api/settings")
+def get_settings():
+    return {"model": model_conf, "memory": memory_conf, "multiagent": multiagent_conf, "kb": kb_conf}
+
+
+class SettingsPatch(BaseModel):
+    section: str
+    patch: dict
+
+
+@app.put("/api/settings")
+def put_settings(body: SettingsPatch):
+    return update_settings(body.section, body.patch)
 
 
 @app.get("/api/health")

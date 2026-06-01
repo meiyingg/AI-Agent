@@ -11,12 +11,12 @@ from src.utils.paths import get_abs_path
 from src.utils.files import read_text
 from src.utils.config import agent_conf, search_conf
 from src.utils.logger import logger
-from src.agent.tools import search_meeting_minutes, generate_decision_report
+from src.agent.tools import search_meeting_minutes, generate_decision_report, list_kb_files
 from src.agent.middleware import monitor_tool, log_before_model, report_prompt_switch
 
 
 def _build_tools():
-    tools = [search_meeting_minutes, generate_decision_report]
+    tools = [search_meeting_minutes, list_kb_files, generate_decision_report]
     # LangChain 官方 Tavily 在线检索工具 (实时, 不落库)
     try:
         from langchain_tavily import TavilySearch

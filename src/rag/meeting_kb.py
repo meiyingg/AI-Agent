@@ -36,11 +36,19 @@ class MeetingKB:
         with open(self.ledger_path, "a", encoding="utf-8") as f:
             f.write(md5_hex + "\n")
 
+    def _corpus_files(self) -> list[str]:
+        """语料 = 示例纪要(meetings_dir) + 上传知识库文本(kb_dir)。"""
+        files = list_files(abs_of("meetings_dir"), (".txt", ".md"))
+        kb = abs_of("kb_dir")
+        if os.path.isdir(kb):
+            files += list_files(kb, (".txt", ".md"))
+        return files
+
     # ---------- 入库 ----------
     def ingest(self) -> dict:
         seen = self._seen()
         new = skipped = chunks = 0
-        for fp in list_files(abs_of("meetings_dir"), (".txt", ".md")):
+        for fp in self._corpus_files():
             content = read_text(fp)
             h = md5_of_text(content)
             if h in seen:
@@ -59,7 +67,7 @@ class MeetingKB:
     # ---------- 构建检索器 (BM25 需要全部分块在内存) ----------
     def load_chunks(self) -> list[Document]:
         docs = []
-        for fp in list_files(abs_of("meetings_dir"), (".txt", ".md")):
+        for fp in self._corpus_files():
             docs.append(Document(page_content=read_text(fp),
                                  metadata={"source": os.path.basename(fp)}))
         return self.store.splitter.split_documents(docs)

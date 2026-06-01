@@ -7,7 +7,7 @@
 from datetime import date
 from langchain.agents import create_agent
 from src.models.factory import reasoning_model
-from src.agent.tools import search_meeting_minutes
+from src.agent.tools import search_meeting_minutes, list_kb_files
 from src.agent.analysis_tools import ANALYSIS_TOOLS
 from src.utils.config import search_conf
 from src.utils.robust import degrade
@@ -40,8 +40,9 @@ def _build_knowledge():
     return create_agent(
         model=reasoning_model,
         system_prompt="你是商会内部知识专家。用 search_meeting_minutes 检索内部会议纪要、"
-                      "区域招商政策、会员经验，输出与问题相关的内部要点。",
-        tools=[search_meeting_minutes],
+                      "区域招商政策、会员经验、用户上传资料；问'有哪些文件'用 list_kb_files。"
+                      "严格只依据检索到的内容输出要点，检索不到就如实说'内部资料未提及'，绝不编造或脑补。",
+        tools=[search_meeting_minutes, list_kb_files],
     )
 
 

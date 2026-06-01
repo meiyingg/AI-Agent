@@ -26,3 +26,9 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
 # 短期记忆: LangGraph checkpointer (SQLite)
 langgraph-checkpoint-sqlite>=2.0.0
+
+# 知识库上传: 文档抽取 (pdf/docx)。文件上传 multipart 需 python-multipart。
+# 音视频转写: DashScope ASR(dashscope, 已含) + 系统级 ffmpeg(需另装, 不在 pip)
+pypdf>=4.0.0
+python-docx>=1.1.0
+python-multipart>=0.0.9

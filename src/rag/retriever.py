@@ -64,4 +64,16 @@ class AdvancedRetriever:
         logger.info(f"[AdvancedRetriever] 模式: {self.mode}, 语料分块数: {len(chunks)}")
 
     def invoke(self, query: str) -> list[Document]:
-        return self.retriever.invoke(query)
+        try:
+            return self.retriever.invoke(query)
+        except Exception as e:
+            # DashScope 重排查询时偶发返回空('NoneType.results') → 降级回混合检索, 不崩
+            if self.mode == "hybrid+rerank":
+                logger.warning(f"[AdvancedRetriever] 重排失败, 降级混合检索: {e}")
+                try:
+                    return self.hybrid.invoke(query)
+                except Exception as e2:
+                    logger.error(f"[AdvancedRetriever] 混合检索也失败: {e2}")
+                    return []
+            logger.error(f"[AdvancedRetriever] 检索失败: {e}")
+            return []

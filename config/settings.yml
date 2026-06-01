@@ -17,6 +17,8 @@ paths:
   memory_db: data/store/memory.sqlite        # 短期记忆: LangGraph checkpointer (会话历史)
   profile_json: data/store/profile.json      # 长期记忆: 全局企业档案 (跨会话, 单一档案)
   threads_json: data/store/threads.json      # 会话注册表 (历史会话列表: id/标题/时间)
+  kb_dir: data/store/kb                      # 知识库语料(上传文档抽取/音视频转写后的文本)
+  uploads_dir: data/store/uploads            # 上传的原始文件(文档/音视频)
   reports_dir: reports
   logs_dir: logs
 
@@ -52,6 +54,12 @@ multiagent:
   max_rounds: 6          # 子Agent 调度最大轮数 (防死循环)
   min_workers: 2         # 出建议前至少要调研的子Agent数 (防止啥都没查就出建议)
   recursion_limit: 25    # LangGraph 递归上限
+
+# 知识库上传 (文档抽取 / 音视频转写 → RAG)
+kb:
+  asr_model: paraformer-realtime-v2   # DashScope 语音识别模型
+  asr_segment_seconds: 60             # 长音频分段转写(秒)
+  max_upload_mb: 200                  # 单文件上限
 
 # 记忆 (短期=会话历史 checkpointer; 长期=全局企业档案)
 memory:

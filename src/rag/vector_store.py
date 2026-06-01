@@ -41,6 +41,13 @@ class VectorStore:
         self.vs.add_documents(chunks, ids=ids)
         return len(chunks)
 
+    def delete_document(self, doc_id: str) -> None:
+        """按 doc_id 删除该文档的所有分块。"""
+        try:
+            self.vs._collection.delete(where={"doc_id": doc_id})
+        except Exception as e:
+            logger.error(f"[VectorStore:{self.collection_name}] 删除失败 doc_id={doc_id}: {e}")
+
     def get_retriever(self, k: int = None):
         return self.vs.as_retriever(search_kwargs={"k": k or rag_conf["top_k"]})
 

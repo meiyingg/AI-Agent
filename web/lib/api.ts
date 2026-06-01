@@ -135,3 +135,104 @@ export async function getThread(id: string): Promise<ThreadDetail> {
   const r = await fetch(`${API_BASE}/api/threads/${id}`);
   return r.json();
 }
+
+// 知识库上传 (公司内部资料 → RAG)
+export interface KbDoc {
+  id: string;
+  name: string;
+  kind: "doc" | "audio" | "video";
+  chunks: number;
+  chars: number;
+  added_at: number;
+}
+
+export interface KbUploadResult {
+  name: string;
+  status: "done" | "processing" | "error";
+  doc?: KbDoc;
+  job_id?: string;
+  kind?: string;
+  error?: string;
+}
+
+export async function uploadKb(files: File[]): Promise<KbUploadResult[]> {
+  const fd = new FormData();
+  files.forEach((f) => fd.append("files", f));
+  const r = await fetch(`${API_BASE}/api/kb/upload`, { method: "POST", body: fd });
+  if (!r.ok) {
+    throw new Error(`上传失败 HTTP ${r.status}（后端可能未重启，缺少 /api/kb/upload 接口）`);
+  }
+  const d = await r.json();
+  return d.results || [];
+}
+
+export async function listKbDocs(): Promise<KbDoc[]> {
+  try {
+    const r = await fetch(`${API_BASE}/api/kb/docs`);
+    const d = await r.json();
+    return d.docs || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteKbDoc(id: string): Promise<void> {
+  await fetch(`${API_BASE}/api/kb/docs/${id}`, { method: "DELETE" });
+}
+
+export async function getKbJob(jobId: string): Promise<{ status: string; doc?: KbDoc; error?: string }> {
+  const r = await fetch(`${API_BASE}/api/kb/jobs/${jobId}`);
+  return r.json();
+}
+
+// 概览统计 + 设置
+export interface Stats {
+  kb: { files: number; chars: number; chunks: number };
+  threads: number;
+  profile: { has: boolean; facts: number };
+  models: { chat: string; reasoning: string; embedding: string };
+}
+
+export async function getStats(): Promise<Stats | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/stats`);
+    if (!r.ok) return null;
+    return r.json();
+  } catch {
+    return null;
+  }
+}
+
+export interface AppSettings {
+  model: Record<string, string>;
+  memory: Record<string, boolean | number>;
+  multiagent: Record<string, number>;
+  kb: Record<string, string | number>;
+}
+
+export async function getSettings(): Promise<AppSettings | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/settings`);
+    if (!r.ok) return null;
+    return r.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function putSettings(section: string, patch: Record<string, unknown>): Promise<void> {
+  await fetch(`${API_BASE}/api/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ section, patch }),
+  });
+}
+
+export async function health(): Promise<boolean> {
+  try {
+    const r = await fetch(`${API_BASE}/api/health`);
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
