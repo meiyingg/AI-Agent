@@ -111,14 +111,12 @@ flowchart TD
         R --> G["④LCEL 生成 (提示词约束防幻觉)"]
     end
     CORE --> CORE2
-    CORE2 --> EV["评测: Recall@k 基线 vs 混合+重排"]
 ```
 
 ### 为什么这样设计
 
 - **混合检索**：纯向量对"型号/金额/专有名词"等关键词召回不稳；BM25 补关键词、向量补语义，加权融合。
 - **重排**：对融合结果用 `gte-rerank` 二次精排取 TopK，降误召回。
-- **评测**：`Recall@k` 量化"基线(纯向量) vs 高级(混合+重排)"，给出可复现的数字。
 - **在线检索只查不存**：资讯讲新鲜度，存进向量库会过期，所以每次实时查、直接给模型。
 - **MD5 去重只用在内部文件**：同一份文档可能被重复导入，按内容 MD5 跳过；网络数据不适用。
 
@@ -128,27 +126,22 @@ flowchart TD
 
 ```
 meeting-insight-agent/
-├── main.py                    # CLI: gen-meetings / ingest-meetings / ask / report / evaluate
+├── main.py                    # CLI: ask / report / advise
 ├── server/main.py             # Web 后端 (FastAPI + SSE 流式)
 ├── web/                       # Web 前端 (Next.js + shadcn, pnpm)
-├── config/settings.yml        # 模型/检索/重排/评测/提示词 配置
+├── config/settings.yml        # 模型/检索/重排/提示词 配置
 ├── prompts/                   # agent_system / report / rag_summarize
-├── data/
-│   ├── samples/               # 内部文档/会议纪要 (RAG 数据)
-│   └── eval/qa.jsonl          # 检索评测问答集
+├── data/store/                # 运行时状态 (向量库/上传/会话/记忆, 已 gitignore)
 └── src/
     ├── models/factory.py      # 模型工厂 (chat + embedding)
     ├── rag/
     │   ├── vector_store.py     # Chroma 向量库封装
     │   ├── retriever.py        # ★混合检索(BM25+向量) + DashScope 重排
     │   └── meeting_kb.py       # 文档入库(MD5去重) + 高级检索 + LCEL 生成
-    ├── agent/
-    │   ├── tools.py            # search_meeting_minutes / generate_decision_report
-    │   ├── middleware.py       # 日志 + 动态切换提示词(报告模式)
-    │   └── react_agent.py      # 统一 Agent (+ LangChain 官方 TavilySearch)
+    ├── agent/                  # 工具 / 中间件 / 子Agent / 投资建议
+    ├── graph/supervisor.py     # 多 Agent 编排 (LangGraph)
+    ├── memory/                 # 短期(会话) + 长期(企业档案) 记忆
     ├── reporting/report_service.py  # Tavily 实时检索 -> 行业洞察报告
-    ├── eval/evaluator.py       # Recall@k 评测
-    ├── ingestion/synthetic.py  # 生成示例文档
     └── utils/                  # 配置/日志/路径/文件
 ```
 
@@ -162,27 +155,21 @@ pip install -r requirements.txt
 copy .env.example .env        # 填 DASHSCOPE_API_KEY 和 TAVILY_API_KEY
 ```
 
-无需 Key：
 ```bash
-python main.py gen-meetings -n 20    # 生成示例文档
-```
-
-需要 Key：
-```bash
-python main.py ingest-meetings                       # 文档入库 (MD5去重+向量化)
-python main.py evaluate                              # 检索评测: 基线 vs 混合+重排 (出 Recall 数字)
-python main.py ask "跨境物流方案的会议决议是什么"        # 内部 -> 高级 RAG
 python main.py ask "东南亚新能源车最新政策"             # 外部 -> Tavily 实时检索
 python main.py report "东南亚新能源汽车市场趋势"         # 行业洞察报告
+python main.py advise "我们电池厂该不该去马来西亚建厂"    # 多 Agent 投资顾问
 python server/main.py                                 # Web 后端, 再 cd web && pnpm dev 开前端
 ```
+
+> 内部资料检索：启动 Web 后端 + 前端后，在「知识库」页上传你自己的文档/音视频，问答时会自动检索。
 
 ---
 
 ## 4. 技术要点（面试锚点）
 
 1. **高级 RAG**：混合检索(`EnsembleRetriever`: BM25 + Chroma 向量, 0.3/0.7) + `gte-rerank` 重排(`ContextualCompressionRetriever`)。
-2. **可量化**：`Recall@k` 对比基线与高级管道，给出"X%→Y%"。
+2. **多 Agent 编排**：LangGraph Supervisor 并行调度(行业调研 / 量化分析 / 内部知识)→ 结构化投资建议。
 3. **一个 Agent 自动分流**：靠系统提示词 + 工具描述，模型自己判断内部走 RAG、外部走联网。
 4. **LCEL**：`PromptTemplate | model | StrOutputParser` 贯穿 RAG 与报告。
 5. **动态提示词切换**：`generate_decision_report` → 中间件置标志 → 下一轮切"报告撰写"人设。
@@ -192,6 +179,5 @@ python server/main.py                                 # Web 后端, 再 cd web &
 
 ## 5. 诚实说明
 
-- 评测用的小问答集与示例文档是合成的，仅演示评测流程；真实指标请用你自己的数据跑。
 - `gte-rerank` 走 DashScope API（复用同一个 Key）；如需完全离线/对标 BGE-Reranker，可改本地 `sentence-transformers`。
 - `.env` 已被 `.gitignore` 忽略；对话中暴露过的 Key 建议到控制台**重置一次**。

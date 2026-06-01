@@ -9,11 +9,9 @@ model:
   embedding_model_name: text-embedding-v4    # 向量化模型 (DashScope)
 
 paths:
-  meetings_dir: data/samples                 # 内部文档/会议纪要 (txt/md)
   store_dir: data/store
   chroma_dir: data/store/chroma              # 向量库 (仅存内部文档)
   meeting_md5_ledger: data/store/meeting_md5.txt   # 文件 MD5 去重台账
-  eval_qa: data/eval/qa.jsonl                # 检索评测问答集
   memory_db: data/store/memory.sqlite        # 短期记忆: LangGraph checkpointer (会话历史)
   profile_json: data/store/profile.json      # 长期记忆: 全局企业档案 (跨会话, 单一档案)
   threads_json: data/store/threads.json      # 会话注册表 (历史会话列表: id/标题/时间)

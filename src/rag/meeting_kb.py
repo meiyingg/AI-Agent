@@ -37,12 +37,9 @@ class MeetingKB:
             f.write(md5_hex + "\n")
 
     def _corpus_files(self) -> list[str]:
-        """语料 = 示例纪要(meetings_dir) + 上传知识库文本(kb_dir)。"""
-        files = list_files(abs_of("meetings_dir"), (".txt", ".md"))
+        """语料 = 上传知识库文本(kb_dir)。检索只命中你上传的文件。"""
         kb = abs_of("kb_dir")
-        if os.path.isdir(kb):
-            files += list_files(kb, (".txt", ".md"))
-        return files
+        return list_files(kb, (".txt", ".md")) if os.path.isdir(kb) else []
 
     # ---------- 入库 ----------
     def ingest(self) -> dict:

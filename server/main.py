@@ -304,21 +304,6 @@ def health():
     return {"ok": True}
 
 
-@app.on_event("startup")
-def _bootstrap_kb():
-    """部署首启：后台把示例语料(data/samples)灌入向量库，让"内部知识"演示有内容。
-
-    幂等：已入库的内容按 MD5 跳过；后台线程执行，不阻塞启动；失败仅记日志(不崩)。
-    """
-    def _run():
-        try:
-            from src.rag.meeting_kb import MeetingKB
-            logger.info(f"[startup] KB ingest: {MeetingKB().ingest()}")
-        except Exception as e:
-            logger.warning(f"[startup] KB ingest skipped: {e}")
-    threading.Thread(target=_run, daemon=True).start()
-
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
