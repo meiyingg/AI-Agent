@@ -9,7 +9,7 @@
 
 ```mermaid
 flowchart TB
-    U["上传文件"] --> RAW["① 原始文件<br/>data/store/uploads/<br/>(留底, 可重处理)"]
+    U["上传文件"] --> RAW["① 原始文件<br/>data/store/uploads/<br/>(临时, 抽取后即删)"]
     RAW --> T{类型}
     T -->|文档| EX["抽取文本"]
     T -->|音视频| ASR["ffmpeg+ASR 转写"]
@@ -22,7 +22,7 @@ flowchart TB
 
 | 编号 | 存什么 | 路径 | 说明 |
 |---|---|---|---|
-| ① | 上传的**原始文件** | `data/store/uploads/` | 留底，可重新处理 |
+| ① | 上传的**原始文件** | `data/store/uploads/` | 临时落盘，抽取/转写完成后自动删除（不留底）|
 | ② | **抽取/转写后的文本** | `data/store/kb/*.txt` | 给 BM25 关键词检索用 |
 | ③ | **向量 + 原文分块** | `data/store/chroma/` | 给语义检索用（Chroma 向量库）|
 | ④ | **注册表** | `data/store/kb/registry.json` | 列表/删除靠它 |

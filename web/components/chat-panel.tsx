@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, ArrowRight, FileText, Sparkles } from "lucide-react";
+import { Send, ArrowRight, FileText, Sparkles, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -16,9 +17,9 @@ export interface ChatMsg {
 }
 
 const EXAMPLES = [
-  "跨境物流方案的会议决议是什么？",
-  "我们这家电池厂该不该去马来西亚建厂？",
-  "东南亚钠离子电池的最新政策",
+  "What was the meeting decision on the cross-border logistics plan?",
+  "Should our battery factory build a plant in Malaysia?",
+  "Latest policies on sodium-ion batteries in Southeast Asia",
 ];
 
 export function ChatPanel({
@@ -74,7 +75,7 @@ export function ChatPanel({
                 submit();
               }
             }}
-            placeholder="问点什么……（投资决策类问题会启动多 Agent 调研）"
+            placeholder="Ask anything… (investment-decision questions launch multi-agent research)"
             rows={1}
             className="max-h-40 min-h-[44px] resize-none"
           />
@@ -103,20 +104,36 @@ function Bubble({ msg }: { msg: ChatMsg }) {
         <div className="flex max-w-[85%] items-center gap-2.5 rounded-2xl rounded-bl-sm border bg-card px-3.5 py-2.5 text-sm">
           <FileText className="size-4 text-primary" />
           <span>
-            已生成<span className="font-semibold">投资建议报告</span>
-            {msg.decision ? `（结论：${msg.decision}）` : ""}
+            Generated an <span className="font-semibold">Investment Recommendation Report</span>
+            {msg.decision ? ` (Decision: ${msg.decision})` : ""}
           </span>
           <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-            见右侧 <ArrowRight className="size-3" />
+            See right <ArrowRight className="size-3" />
           </span>
         </div>
       </div>
     );
   }
   return (
-    <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-2xl rounded-bl-sm border bg-card px-3.5 py-2">
-        {msg.content ? <Markdown>{msg.content}</Markdown> : <Dots />}
+    <div className="group flex justify-start">
+      <div className="relative max-w-[85%] rounded-2xl rounded-bl-sm border bg-card px-3.5 py-2">
+        {msg.content ? (
+          <>
+            <Markdown>{msg.content}</Markdown>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(msg.content);
+                toast.success("Copied");
+              }}
+              className="absolute -right-2 -top-2 hidden rounded-md border bg-background p-1 text-muted-foreground shadow-sm hover:text-foreground group-hover:block"
+              title="Copy"
+            >
+              <Copy className="size-3.5" />
+            </button>
+          </>
+        ) : (
+          <Dots />
+        )}
       </div>
     </div>
   );
@@ -148,9 +165,9 @@ function Empty({ onPick, disabled }: { onPick: (t: string) => void; disabled: bo
       <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary/10">
         <Sparkles className="size-6 text-primary" />
       </div>
-      <h2 className="text-lg font-semibold">商会企业投资顾问</h2>
+      <h2 className="text-lg font-semibold">Chamber Investment Advisor</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        查会议纪要 / 查行业资讯 / 出投资决策建议 —— 系统自主研判该怎么回答。
+        Look up meeting minutes / check industry news / get investment recommendations — the system decides how to answer.
       </p>
       <div className="mt-5 flex w-full flex-col gap-2">
         {EXAMPLES.map((ex) => (

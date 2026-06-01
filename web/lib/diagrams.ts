@@ -26,13 +26,13 @@ export function buildDiagrams(report: Report): Diagram[] {
   const opps = (report.opportunities || []).slice(0, 4);
   const risks = (report.risks || []).slice(0, 4);
   if (opps.length || risks.length) {
-    const L = ["flowchart LR", `  D["决策：${clean(report.decision || "—", 10)}"]:::dec`];
+    const L = ["flowchart LR", `  D["Decision: ${clean(report.decision || "—", 10)}"]:::dec`];
     if (opps.length) {
-      L.push(`  Oh(["机会"]):::ohead`, `  D --> Oh`);
+      L.push(`  Oh(["Opportunities"]):::ohead`, `  D --> Oh`);
       opps.forEach((o, i) => L.push(`  O${i}["${clean(o)}"]:::opp`, `  Oh --> O${i}`));
     }
     if (risks.length) {
-      L.push(`  Rh(["风险"]):::rhead`, `  D --> Rh`);
+      L.push(`  Rh(["Risks"]):::rhead`, `  D --> Rh`);
       risks.forEach((r, i) => L.push(`  R${i}["${clean(r)}"]:::risk`, `  Rh --> R${i}`));
     }
     L.push(
@@ -42,7 +42,7 @@ export function buildDiagrams(report: Report): Diagram[] {
       "  classDef opp fill:#E1EDF5,stroke:#6BA3CC,color:#003153",
       "  classDef risk fill:#fdecec,stroke:#dc2626,color:#7f1d1d",
     );
-    out.push({ title: "机会 · 风险", code: L.join("\n") });
+    out.push({ title: "Opportunities · Risks", code: L.join("\n") });
   }
 
   const actions = (report.actions || []).slice(0, 6);
@@ -50,15 +50,15 @@ export function buildDiagrams(report: Report): Diagram[] {
     const L = [
       "gantt",
       "  dateFormat YYYY-MM-DD",
-      "  axisFormat %m月",
-      "  title 落地时间线 示意",
-      "  section 实施",
+      "  axisFormat %b",
+      "  title Implementation Timeline (indicative)",
+      "  section Execution",
     ];
     actions.forEach((a, i) => {
       const start = `2026-${String(i + 1).padStart(2, "0")}-01`;
       L.push(`  ${cleanGantt(a, i + 1)} :a${i}, ${start}, 30d`);
     });
-    out.push({ title: "落地时间线", code: L.join("\n") });
+    out.push({ title: "Implementation Timeline", code: L.join("\n") });
   }
 
   return out;

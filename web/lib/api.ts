@@ -51,7 +51,7 @@ export async function streamChat(
     signal,
   });
   if (!res.ok || !res.body) {
-    throw new Error(`请求失败: ${res.status}`);
+    throw new Error(`Request failed: ${res.status}`);
   }
   const t0 = performance.now();
   const el = () => ((performance.now() - t0) / 1000).toFixed(2);
@@ -160,7 +160,7 @@ export async function uploadKb(files: File[]): Promise<KbUploadResult[]> {
   files.forEach((f) => fd.append("files", f));
   const r = await fetch(`${API_BASE}/api/kb/upload`, { method: "POST", body: fd });
   if (!r.ok) {
-    throw new Error(`上传失败 HTTP ${r.status}（后端可能未重启，缺少 /api/kb/upload 接口）`);
+    throw new Error(`Upload failed HTTP ${r.status} (the backend may not have been restarted, missing the /api/kb/upload endpoint)`);
   }
   const d = await r.json();
   return d.results || [];
@@ -180,9 +180,40 @@ export async function deleteKbDoc(id: string): Promise<void> {
   await fetch(`${API_BASE}/api/kb/docs/${id}`, { method: "DELETE" });
 }
 
+export async function getKbDocText(id: string): Promise<string> {
+  try {
+    const r = await fetch(`${API_BASE}/api/kb/docs/${id}/content`);
+    if (!r.ok) return "";
+    const d = await r.json();
+    return d.text || "";
+  } catch {
+    return "";
+  }
+}
+
 export async function getKbJob(jobId: string): Promise<{ status: string; doc?: KbDoc; error?: string }> {
   const r = await fetch(`${API_BASE}/api/kb/jobs/${jobId}`);
   return r.json();
+}
+
+export interface KbChunk {
+  source: string;
+  text: string;
+}
+
+export async function searchKb(query: string): Promise<KbChunk[]> {
+  try {
+    const r = await fetch(`${API_BASE}/api/kb/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return d.results || [];
+  } catch {
+    return [];
+  }
 }
 
 // 概览统计 + 设置
@@ -235,4 +266,42 @@ export async function health(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// 决策记录(历史投资报告)
+export interface ReportSummary {
+  id: string;
+  thread_id: string;
+  question: string;
+  decision: string;
+  confidence: string;
+  created_at: number;
+}
+export interface ReportDetail extends ReportSummary {
+  report: Report;
+  findings?: Findings;
+}
+
+export async function listReports(): Promise<ReportSummary[]> {
+  try {
+    const r = await fetch(`${API_BASE}/api/reports`);
+    if (!r.ok) return [];
+    return r.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function getReport(id: string): Promise<ReportDetail | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/reports/${id}`);
+    const d = await r.json();
+    return d && d.id ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteReport(id: string): Promise<void> {
+  await fetch(`${API_BASE}/api/reports/${id}`, { method: "DELETE" });
 }

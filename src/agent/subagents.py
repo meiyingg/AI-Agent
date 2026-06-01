@@ -18,7 +18,7 @@ _research = _knowledge = _analysis = None
 
 
 def _today() -> str:
-    return f"今天是 {date.today().isoformat()}，涉及最新信息以此为准，勿用过时年份。"
+    return f"Today is {date.today().isoformat()}; treat it as the reference for the latest info, and do not use stale years."
 
 
 def _build_research():
@@ -30,8 +30,9 @@ def _build_research():
         logger.warning(f"[subagents] Tavily 不可用: {e}")
     return create_agent(
         model=reasoning_model,
-        system_prompt=f"你是行业调研专家。{_today()} 用联网搜索收集与问题相关的"
-                      f"行业现状、市场数据、政策动态，输出要点并附来源链接。",
+        system_prompt=f"You are an industry-research expert. {_today()} Use web search to gather the "
+                      f"industry status, market data, and policy developments relevant to the question, "
+                      f"and output key points with source links.",
         tools=tools,
     )
 
@@ -39,9 +40,11 @@ def _build_research():
 def _build_knowledge():
     return create_agent(
         model=reasoning_model,
-        system_prompt="你是商会内部知识专家。用 search_meeting_minutes 检索内部会议纪要、"
-                      "区域招商政策、会员经验、用户上传资料；问'有哪些文件'用 list_kb_files。"
-                      "严格只依据检索到的内容输出要点，检索不到就如实说'内部资料未提及'，绝不编造或脑补。",
+        system_prompt="You are the chamber's internal-knowledge expert. Use search_meeting_minutes to retrieve "
+                      "internal meeting minutes, regional investment-promotion policies, member experience, and "
+                      "user-uploaded materials; for 'what files are there' use list_kb_files. "
+                      "Output key points strictly and only from what you retrieve; if nothing is found, honestly say "
+                      "'not mentioned in internal materials' — never fabricate or guess.",
         tools=[search_meeting_minutes, list_kb_files],
     )
 
@@ -49,9 +52,10 @@ def _build_knowledge():
 def _build_analysis():
     return create_agent(
         model=reasoning_model,
-        system_prompt="你是投资量化分析师。根据问题自主选择调用分析工具"
-                      "(市场概况/ROI/风险/成本/方案对比/政策红利)，输出关键量化结论。"
-                      "注意：工具为模拟数据，结论需标注'基于模拟测算'。",
+        system_prompt="You are an investment quant analyst. Based on the question, autonomously choose which analysis "
+                      "tools to call (market snapshot / ROI / risk / cost / option comparison / policy incentives) and "
+                      "output key quantitative conclusions. Note: the tools return simulated data, so flag conclusions "
+                      "as 'based on simulated estimates'.",
         tools=ANALYSIS_TOOLS,
     )
 
@@ -90,25 +94,25 @@ def _run(agent, instruction: str, key: str) -> str:
     return str(final).strip()
 
 
-@degrade("（行业调研环节暂无结果）")
+@degrade("(No results from the industry-research step.)")
 def run_research(query: str) -> str:
     global _research
     if _research is None:
         _research = _build_research()
-    return _run(_research, f"针对企业问题：{query}\n请联网检索相关行业/政策/市场最新动态，给出要点与来源。", "research")
+    return _run(_research, f"For the company question: {query}\nSearch the web for the latest relevant industry/policy/market developments, and give key points with sources.", "research")
 
 
-@degrade("（内部知识环节暂无结果）")
+@degrade("(No results from the internal-knowledge step.)")
 def run_knowledge(query: str) -> str:
     global _knowledge
     if _knowledge is None:
         _knowledge = _build_knowledge()
-    return _run(_knowledge, f"针对企业问题：{query}\n请检索商会内部资料，给出相关内部信息要点。", "knowledge")
+    return _run(_knowledge, f"For the company question: {query}\nSearch the chamber's internal materials and give the relevant internal key points.", "knowledge")
 
 
-@degrade("（量化分析环节暂无结果）")
+@degrade("(No results from the quant-analysis step.)")
 def run_analysis(query: str) -> str:
     global _analysis
     if _analysis is None:
         _analysis = _build_analysis()
-    return _run(_analysis, f"针对企业问题：{query}\n请调用分析工具给出市场/ROI/风险/方案对比等量化结论。", "analysis")
+    return _run(_analysis, f"For the company question: {query}\nCall the analysis tools to give quantitative conclusions on market / ROI / risk / option comparison, etc.", "analysis")

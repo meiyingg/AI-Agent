@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Building2, Loader2, Save, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,7 +34,10 @@ export function ProfileView() {
       setP(r);
       setFactsText((r.facts || []).join("\n"));
       setSaved(true);
+      toast.success("Company profile saved");
       setTimeout(() => setSaved(false), 2000);
+    } catch {
+      toast.error("Save failed, please retry");
     } finally {
       setSaving(false);
     }
@@ -41,13 +45,13 @@ export function ProfileView() {
 
   return (
     <PageContainer
-      title="企业档案"
-      subtitle="长期记忆 · 跨会话记住的企业画像与偏好，会注入到问答与投资建议中。"
+      title="Company Profile"
+      subtitle="Long-term memory · the company profile and preferences remembered across sessions, injected into Q&A and investment advice."
       icon={Building2}
       actions={
         <Button onClick={onSave} disabled={saving || loading} className="gap-1.5">
           {saving ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : <Save className="size-4" />}
-          {saved ? "已保存" : "保存档案"}
+          {saved ? "Saved" : "Save Profile"}
         </Button>
       }
     >
@@ -57,22 +61,22 @@ export function ProfileView() {
         </div>
       ) : (
         <div className="space-y-4">
-          <Field label="企业画像" hint="一句话：行业 / 主营 / 市场">
+          <Field label="Company profile" hint="One line: industry / main business / markets">
             <Textarea rows={2} value={p.profile} onChange={(e) => setP({ ...p, profile: e.target.value })}
-              placeholder="如：一家钠离子电池储能制造商，主供东南亚市场" />
+              placeholder="e.g. A sodium-ion battery storage manufacturer, mainly serving Southeast Asia" />
           </Field>
-          <Field label="偏好" hint="风险偏好 / 关注点 / 约束">
+          <Field label="Preferences" hint="Risk appetite / focus / constraints">
             <Textarea rows={2} value={p.preferences} onChange={(e) => setP({ ...p, preferences: e.target.value })}
-              placeholder="如：风险偏好保守，重视回本周期" />
+              placeholder="e.g. Conservative risk appetite, focused on payback period" />
           </Field>
-          <Field label="关键事实" hint="每行一条，自动去重并限制条数">
+          <Field label="Key facts" hint="One per line; auto-deduplicated and capped">
             <Textarea rows={6} value={factsText} onChange={(e) => setFactsText(e.target.value)}
               className="font-mono text-xs"
-              placeholder={"主营钠离子电池储能\n目标市场东南亚\n规划年产能5GWh"} />
+              placeholder={"Core business: sodium-ion battery storage\nTarget market: Southeast Asia\nPlanned annual capacity: 5GWh"} />
           </Field>
-          <Field label="历史结论摘要" hint="过往建议的浓缩（可留空）">
+          <Field label="Past conclusions summary" hint="A digest of previous advice (optional)">
             <Textarea rows={3} value={p.history} onChange={(e) => setP({ ...p, history: e.target.value })}
-              placeholder="如：曾建议以轻资产 PACK 方式进入吉打州" />
+              placeholder="e.g. Previously advised entering Kedah via an asset-light PACK model" />
           </Field>
         </div>
       )}

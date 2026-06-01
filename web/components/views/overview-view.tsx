@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   LayoutDashboard,
   Database,
@@ -12,27 +12,44 @@ import {
   Settings,
   ArrowRight,
 } from "lucide-react";
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { PageContainer } from "@/components/views/page-container";
-import { getStats, type Stats } from "@/lib/api";
+import { getStats, listKbDocs, listReports, type Stats, type KbDoc, type ReportSummary } from "@/lib/api";
+
+const PIE = ["#1D4E89", "#6BA3CC", "#e2a23b", "#10b981", "#f43f5e"];
 
 export function OverviewView({ onNavigate }: { onNavigate: (v: string) => void }) {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [docs, setDocs] = useState<KbDoc[]>([]);
+  const [reports, setReports] = useState<ReportSummary[]>([]);
   useEffect(() => {
     getStats().then(setStats);
+    listKbDocs().then(setDocs);
+    listReports().then(setReports);
   }, []);
 
+  const typeData = [
+    { name: "Docs", value: docs.filter((d) => d.kind === "doc").length },
+    { name: "Audio", value: docs.filter((d) => d.kind === "audio").length },
+    { name: "Video", value: docs.filter((d) => d.kind === "video").length },
+  ].filter((x) => x.value > 0);
+
+  const decData = ["Enter", "Hold", "Avoid", "Exit"]
+    .map((k) => ({ name: k, value: reports.filter((r) => (r.decision || "").includes(k)).length }))
+    .filter((x) => x.value > 0);
+
   return (
-    <PageContainer title="概览" subtitle="商会企业投资顾问 · 多 Agent + 高级 RAG + 长期记忆" icon={LayoutDashboard}>
+    <PageContainer title="Overview" subtitle="Chamber Investment Advisor · Multi-Agent + Advanced RAG + Long-term Memory" icon={LayoutDashboard}>
       {/* 指标 */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard icon={Database} label="知识库文件" value={stats?.kb.files ?? "—"} sub={`${(stats?.kb.chars ?? 0).toLocaleString()} 字`} />
-        <StatCard icon={FileText} label="向量分块" value={stats?.kb.chunks ?? "—"} />
-        <StatCard icon={MessageSquare} label="历史会话" value={stats?.threads ?? "—"} />
+        <StatCard icon={Database} label="KB files" value={stats?.kb.files ?? "—"} sub={`${(stats?.kb.chars ?? 0).toLocaleString()} chars`} />
+        <StatCard icon={FileText} label="Vector chunks" value={stats?.kb.chunks ?? "—"} />
+        <StatCard icon={MessageSquare} label="Sessions" value={stats?.threads ?? "—"} />
         <StatCard
           icon={Building2}
-          label="企业档案"
-          value={stats ? (stats.profile.has ? "已设置" : "未设置") : "—"}
-          sub={`${stats?.profile.facts ?? 0} 条事实`}
+          label="Company profile"
+          value={stats ? (stats.profile.has ? "Set" : "Not set") : "—"}
+          sub={`${stats?.profile.facts ?? 0} facts`}
         />
       </div>
 
@@ -40,28 +57,47 @@ export function OverviewView({ onNavigate }: { onNavigate: (v: string) => void }
         {/* 模型概况 */}
         <div className="rounded-lg border bg-card p-4">
           <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-            <Cpu className="size-4 text-primary" /> 模型概况
+            <Cpu className="size-4 text-primary" /> Models
           </div>
-          <ModelRow k="对话 / 报告" v={stats?.models.chat} />
-          <ModelRow k="推理 (思考链)" v={stats?.models.reasoning} />
-          <ModelRow k="向量化" v={stats?.models.embedding} />
+          <ModelRow k="Chat / Report" v={stats?.models.chat} />
+          <ModelRow k="Reasoning (CoT)" v={stats?.models.reasoning} />
+          <ModelRow k="Embedding" v={stats?.models.embedding} />
         </div>
 
         {/* 快捷入口 */}
         <div className="rounded-lg border bg-card p-4">
-          <div className="mb-2 text-sm font-semibold">快捷入口</div>
+          <div className="mb-2 text-sm font-semibold">Quick actions</div>
           <div className="grid grid-cols-2 gap-2">
-            <Quick icon={MessageSquare} label="开始对话" onClick={() => onNavigate("chat")} />
-            <Quick icon={Upload} label="上传资料" onClick={() => onNavigate("knowledge")} />
-            <Quick icon={Building2} label="编辑档案" onClick={() => onNavigate("profile")} />
-            <Quick icon={Settings} label="设置" onClick={() => onNavigate("settings")} />
+            <Quick icon={MessageSquare} label="Start chat" onClick={() => onNavigate("chat")} />
+            <Quick icon={Upload} label="Upload" onClick={() => onNavigate("knowledge")} />
+            <Quick icon={Building2} label="Edit profile" onClick={() => onNavigate("profile")} />
+            <Quick icon={Settings} label="Settings" onClick={() => onNavigate("settings")} />
           </div>
         </div>
       </div>
 
+      {/* 数据洞察 */}
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <ChartCard title="KB file types">
+          {typeData.length ? (
+            <Donut data={typeData} />
+          ) : (
+            <Empty text="No materials yet" />
+          )}
+        </ChartCard>
+        <ChartCard title="Decisions distribution">
+          {decData.length ? (
+            <Donut data={decData} />
+          ) : (
+            <Empty text="No decisions yet" />
+          )}
+        </ChartCard>
+      </div>
+
       <div className="mt-4 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-        提示：上传公司内部资料到「知识库」，问答时「内部知识 Agent」会自动检索；投资决策类问题会启动多 Agent
-        并行调研（行业调研 + 量化分析），右侧工作台实时显示思考链。
+        Tip: upload internal company materials to the Knowledge base, and the Internal-Knowledge agent retrieves them
+        automatically during Q&A; investment-decision questions launch multi-agent parallel research (Industry Research +
+        Quant Analysis), with the reasoning chain shown live in the worktable on the right.
       </div>
     </PageContainer>
   );
@@ -109,5 +145,46 @@ function Quick({ icon: Icon, label, onClick }: { icon: ComponentType<{ className
       {label}
       <ArrowRight className="ml-auto size-3.5 text-muted-foreground" />
     </button>
+  );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <div className="mb-2 text-sm font-semibold">{title}</div>
+      <div className="h-[180px]">{children}</div>
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{text}</div>;
+}
+
+function Donut({ data }: { data: { name: string; value: number }[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => setW(Math.floor(entries[0].contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className="h-full w-full">
+      {w > 0 && (
+        <PieChart width={w} height={180}>
+          <Pie data={data} dataKey="value" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={2} label={(e) => `${e.name} ${e.value}`} labelLine={false}>
+            {data.map((_, i) => (
+              <Cell key={i} fill={PIE[i % PIE.length]} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--card-foreground)" }}
+          />
+        </PieChart>
+      )}
+    </div>
   );
 }

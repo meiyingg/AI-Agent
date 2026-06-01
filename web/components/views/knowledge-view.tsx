@@ -10,19 +10,29 @@ import {
   FileAudio,
   Video,
   AlertCircle,
+  Search,
+  Eye,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { relativeTime } from "@/lib/format";
+import { useNotifications } from "@/lib/notifications";
+import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/views/page-container";
 import {
   uploadKb,
   listKbDocs,
   deleteKbDoc,
   getKbJob,
+  searchKb,
+  getKbDocText,
   type KbDoc,
+  type KbChunk,
 } from "@/lib/api";
 
 const KIND_ICON = { doc: FileText, audio: FileAudio, video: Video } as const;
-const KIND_LABEL = { doc: "文档", audio: "音频", video: "视频" } as const;
+const KIND_LABEL = { doc: "Document", audio: "Audio", video: "Video" } as const;
 const ACCEPT = ".txt,.md,.pdf,.docx,.mp3,.wav,.m4a,.aac,.flac,.ogg,.mp4,.mov,.mkv,.avi,.webm";
 
 interface Job {
@@ -38,7 +48,28 @@ export function KnowledgeView() {
   const [drag, setDrag] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [err, setErr] = useState("");
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<KbChunk[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [viewing, setViewing] = useState<{ doc: KbDoc; text: string; loading: boolean } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { notify } = useNotifications();
+
+  async function openDoc(d: KbDoc) {
+    setViewing({ doc: d, text: "", loading: true });
+    const text = await getKbDocText(d.id);
+    setViewing({ doc: d, text, loading: false });
+  }
+
+  async function onSearch() {
+    if (!q.trim()) return;
+    setSearching(true);
+    try {
+      setResults(await searchKb(q.trim()));
+    } finally {
+      setSearching(false);
+    }
+  }
 
   async function refresh() {
     setDocs(await listKbDocs());
@@ -54,10 +85,13 @@ export function KnowledgeView() {
       if (s.status === "done") {
         clearInterval(timer);
         setJobs((j) => j.filter((x) => x.name !== name));
+        toast.success(`${name} transcribed and indexed`);
+        notify({ title: "Transcription done", desc: `${name} transcribed and added to the knowledge base` });
         refresh();
       } else if (s.status === "error" || s.status === "unknown") {
         clearInterval(timer);
         setJobs((j) => j.map((x) => (x.name === name ? { ...x, status: "error", error: s.error } : x)));
+        toast.error(`${name} transcription failed`);
       }
     }, 3000);
   }
@@ -70,18 +104,40 @@ export function KnowledgeView() {
       const results = await uploadKb(files);
       const processing = results.filter((r) => r.status === "processing" && r.job_id);
       const errs = results.filter((r) => r.status === "error");
+      const done = results.filter((r) => r.status === "done").length;
       setJobs((j) => [
         ...j,
         ...processing.map((r) => ({ name: r.name, status: "processing" as const })),
         ...errs.map((r) => ({ name: r.name, status: "error" as const, error: r.error })),
       ]);
+      if (done) {
+        toast.success(`Indexed ${done} file(s)`);
+        notify({ title: "Materials indexed", desc: `${done} document(s) added to the knowledge base` });
+      }
+      if (processing.length) toast.info(`Transcribing ${processing.length} media file(s)…`);
+      errs.forEach((r) => toast.error(`${r.name}: ${r.error || "processing failed"}`));
       processing.forEach((r) => pollJob(r.job_id!, r.name));
       await refresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg);
+      toast.error(msg);
     } finally {
       setUploading(false);
     }
+  }
+
+  function confirmDelete(d: KbDoc) {
+    toast(`Delete "${d.name}"?`, {
+      action: {
+        label: "Delete",
+        onClick: async () => {
+          await deleteKbDoc(d.id);
+          toast.success("Deleted");
+          refresh();
+        },
+      },
+    });
   }
 
   const totalChars = docs.reduce((s, d) => s + (d.chars || 0), 0);
@@ -89,15 +145,15 @@ export function KnowledgeView() {
 
   return (
     <PageContainer
-      title="公司知识库"
-      subtitle="上传公司内部资料（文档 / 音视频），自动入 RAG 供「内部知识 Agent」检索。文件只存本地。"
+      title="Knowledge Base"
+      subtitle="Upload internal company materials (documents / audio-video); they're auto-indexed into RAG for the Internal-Knowledge agent. Files stay local only."
       icon={Database}
     >
       {/* 统计 */}
       <div className="mb-4 grid grid-cols-3 gap-3">
-        <Stat label="文件" value={docs.length} />
-        <Stat label="总字数" value={totalChars.toLocaleString()} />
-        <Stat label="向量分块" value={totalChunks} />
+        <Stat label="Files" value={docs.length} />
+        <Stat label="Total chars" value={totalChars.toLocaleString()} />
+        <Stat label="Vector chunks" value={totalChunks} />
       </div>
 
       {/* 上传区 */}
@@ -123,9 +179,9 @@ export function KnowledgeView() {
         ) : (
           <Upload className="size-7 text-muted-foreground" />
         )}
-        <div className="text-sm font-medium">拖拽文件到此，或点击上传</div>
+        <div className="text-sm font-medium">Drag files here, or click to upload</div>
         <div className="text-xs text-muted-foreground">
-          文档 txt/md/pdf/docx · 音频 mp3/wav/m4a · 视频 mp4/mov（音视频自动转写）
+          Documents txt/md/pdf/docx · Audio mp3/wav/m4a · Video mp4/mov (media auto-transcribed)
         </div>
       </div>
       <input
@@ -156,34 +212,72 @@ export function KnowledgeView() {
           )}
           <span className="truncate">{j.name}</span>
           <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-            {j.status === "processing" ? "转写入库中…" : j.error || "失败"}
+            {j.status === "processing" ? "Transcribing & indexing…" : j.error || "failed"}
           </span>
         </div>
       ))}
+
+      {/* RAG 检索预览 */}
+      <div className="mb-4 rounded-lg border bg-card p-4">
+        <div className="mb-2 flex flex-wrap items-center gap-x-1.5 text-sm font-semibold">
+          <Search className="size-4 text-primary" /> Retrieval preview
+          <span className="text-xs font-normal text-muted-foreground">Enter a question to see the snippets RAG actually hits (hybrid retrieval + rerank)</span>
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSearch()}
+            placeholder="e.g. What is the travel reimbursement cap?"
+            className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+          />
+          <Button onClick={onSearch} disabled={searching || !q.trim()} className="gap-1.5">
+            {searching ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+            Search
+          </Button>
+        </div>
+        {results !== null && (
+          <div className="mt-3 space-y-2">
+            {results.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No relevant snippets found (the KB may be empty or unrelated to the question).</p>
+            ) : (
+              results.map((c, i) => (
+                <div key={i} className="rounded-md border bg-muted/30 p-2.5 text-xs">
+                  <div className="mb-1 flex items-center gap-1 font-medium text-primary/80">
+                    <FileText className="size-3" /> {c.source} · Hit #{i + 1}
+                  </div>
+                  <div className="line-clamp-4 whitespace-pre-wrap leading-relaxed text-foreground/80">{c.text}</div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 文件表格 */}
       <div className="overflow-hidden rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 text-left font-medium">文件</th>
-              <th className="px-3 py-2 text-left font-medium">类型</th>
-              <th className="px-3 py-2 text-right font-medium">字数</th>
-              <th className="px-3 py-2 text-right font-medium">分块</th>
-              <th className="w-10 px-3 py-2"></th>
+              <th className="px-3 py-2 text-left font-medium">File</th>
+              <th className="px-3 py-2 text-left font-medium">Type</th>
+              <th className="px-3 py-2 text-right font-medium">Chars</th>
+              <th className="px-3 py-2 text-right font-medium">Chunks</th>
+              <th className="px-3 py-2 text-right font-medium">Added</th>
+              <th className="w-16 px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center">
+                <td colSpan={6} className="py-8 text-center">
                   <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
                 </td>
               </tr>
             ) : docs.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">
-                  还没有资料，拖拽或点击上方上传。
+                <td colSpan={6} className="py-8 text-center text-xs text-muted-foreground">
+                  No materials yet — drag or click above to upload.
                 </td>
               </tr>
             ) : (
@@ -192,25 +286,36 @@ export function KnowledgeView() {
                 return (
                   <tr key={d.id} className="border-t">
                     <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openDoc(d)}
+                        className="flex max-w-full items-center gap-2 text-left hover:text-primary"
+                        title="View content"
+                      >
                         <Icon className="size-4 shrink-0 text-primary" />
-                        <span className="truncate">{d.name}</span>
-                      </div>
+                        <span className="truncate hover:underline">{d.name}</span>
+                      </button>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{KIND_LABEL[d.kind] ?? d.kind}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{d.chars}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{d.chunks}</td>
+                    <td className="px-3 py-2 text-right text-xs text-muted-foreground">{relativeTime(d.added_at)}</td>
                     <td className="px-3 py-2">
-                      <button
-                        onClick={async () => {
-                          await deleteKbDoc(d.id);
-                          refresh();
-                        }}
-                        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        title="删除"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-0.5">
+                        <button
+                          onClick={() => openDoc(d)}
+                          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="View content"
+                        >
+                          <Eye className="size-4" />
+                        </button>
+                        <button
+                          onClick={() => confirmDelete(d)}
+                          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          title="Delete"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -219,6 +324,52 @@ export function KnowledgeView() {
           </tbody>
         </table>
       </div>
+
+      {/* 内容查看弹窗 */}
+      {viewing && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setViewing(null)}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border bg-card shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText className="size-4 shrink-0 text-primary" />
+                <span className="truncate text-sm font-semibold">{viewing.doc.name}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {viewing.doc.chars} chars · {viewing.doc.chunks} chunks
+                </span>
+              </div>
+              <button
+                onClick={() => setViewing(null)}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                title="Close"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {viewing.loading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : viewing.text ? (
+                <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/90">
+                  {viewing.text}
+                </pre>
+              ) : (
+                <p className="py-10 text-center text-sm text-muted-foreground">Unable to read content (the text may have been deleted).</p>
+              )}
+            </div>
+            <div className="border-t px-4 py-2 text-[11px] text-muted-foreground">
+              This is the text the system extracted from the original file and that the AI actually retrieves (transcript for media).
+            </div>
+          </div>
+        </div>
+      )}
     </PageContainer>
   );
 }

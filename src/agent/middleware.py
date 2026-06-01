@@ -59,9 +59,9 @@ def _with_today(prompt: str) -> str:
     """在提示词最前面注入当前日期，解决模型'不知道今天几号'导致只搜旧年份的问题。"""
     today = date.today().isoformat()
     header = (
-        f"【当前日期】今天是 {today}。\n"
-        f"凡涉及'最新/近期/现状'的问题，请以该日期为准检索，不要硬编码过时年份；"
-        f"需要时优先检索最近一年内、尤其近 30 天的内容。\n\n"
+        f"[Current date] Today is {today}.\n"
+        f"For any question about 'latest / recent / current status', retrieve based on this date; do not hard-code "
+        f"stale years; when needed, prioritize content from the last year, especially the last 30 days.\n\n"
     )
     return header + prompt
 

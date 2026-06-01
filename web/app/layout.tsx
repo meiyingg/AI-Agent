@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/toaster";
+import { AuthProvider } from "@/lib/auth";
+import { NotificationsProvider } from "@/lib/notifications";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "商会企业投资顾问",
-  description: "多 Agent · 高级 RAG · 长期记忆 —— 企业级智能投资顾问",
+  title: "Chamber Investment Advisor",
+  description: "Multi-Agent · Advanced RAG · Long-term Memory — enterprise-grade AI investment advisor",
 };
 
 export default function RootLayout({
@@ -25,12 +28,19 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="zh-CN"
+      lang="en"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <NotificationsProvider>
+              {children}
+              <Toaster />
+            </NotificationsProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

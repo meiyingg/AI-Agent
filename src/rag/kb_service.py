@@ -126,7 +126,7 @@ def transcribe(src_path: str) -> str:
 def ingest_text(text: str, name: str, kind: str) -> dict:
     text = (text or "").strip()
     if not text:
-        raise ValueError("未提取到文本内容")
+        raise ValueError("No text content extracted")
     doc_id = md5_of_text(text)
     kb = _shared_kb()
     chunks = kb.store.add_document(text, doc_id=doc_id, metadata={"source": name, "kind": kind})
@@ -153,12 +153,38 @@ def process_upload(raw_path: str, name: str) -> dict:
     elif kind in ("audio", "video"):
         text = transcribe(raw_path)
     else:
-        raise ValueError(f"不支持的文件类型: {ext}")
+        raise ValueError(f"Unsupported file type: {ext}")
     return ingest_text(text, name, kind)
 
 
 def list_docs() -> list[dict]:
     return sorted(_load_registry().values(), key=lambda d: d.get("added_at", 0), reverse=True)
+
+
+def get_doc_text(doc_id: str) -> str | None:
+    """读取某份资料提取后的文本(AI 实际检索所依据的内容)，供前端"查看"。"""
+    info = _load_registry().get(doc_id)
+    if not info or not info.get("text_file"):
+        return None
+    path = os.path.join(_kb_dir(), info["text_file"])
+    return read_text(path) if os.path.exists(path) else None
+
+
+def search_chunks(query: str, k: int = 6) -> list[dict]:
+    """RAG 检索预览：返回混合检索+重排命中的片段(供前端透明展示"AI看到了什么")。"""
+    kb = _shared_kb()
+    try:
+        docs = kb.retriever().invoke(query)
+    except Exception as e:
+        logger.warning(f"[KB] 检索预览失败: {e}")
+        return []
+    out = []
+    for d in docs[:k]:
+        out.append({
+            "source": d.metadata.get("source") or d.metadata.get("doc_id", "") or "内部资料",
+            "text": (d.page_content or "").strip(),
+        })
+    return out
 
 
 def delete_doc(doc_id: str) -> bool:

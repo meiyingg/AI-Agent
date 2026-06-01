@@ -47,7 +47,7 @@ class InvestState(TypedDict):
 
 
 WORKERS = {"knowledge": "internal_notes", "research": "research_notes", "analysis": "analysis_notes"}
-_LABEL = {"knowledge": "内部知识", "research": "行业调研", "analysis": "量化分析"}
+_LABEL = {"knowledge": "Internal Knowledge", "research": "Industry Research", "analysis": "Quant Analysis"}
 
 _general_agent = None
 
@@ -60,19 +60,21 @@ def _phase(agent: str, label: str, status: str, **extra):
 def _classify(query: str) -> str:
     """意图分诊：advisory(投资决策类) / general(其他)。"""
     resp = chat_model.invoke(
-        "判断用户输入属于哪类，只回一个英文词：\n"
-        "- advisory：用户在为自己企业求一个明确的投资【决策】"
-        "(要不要投/该不该建厂/选址/是否扩产/可行性)，需要综合调研+量化分析+给结论。\n"
-        "- general：其他所有(问候闲聊、查会议纪要、查行业资讯、"
-        "介绍/科普/分析某事物、要点总结)。注意：'介绍/了解/分析某事物'不是投资决策，属于 general。\n"
-        f"用户输入：{query}\n答："
+        "Classify which category the user input belongs to; reply with exactly one English word:\n"
+        "- advisory: the user is seeking a clear investment [decision] for their own company "
+        "(whether to invest / whether to build a plant / site selection / whether to expand / feasibility), "
+        "which needs combined research + quant analysis + a conclusion.\n"
+        "- general: everything else (greetings/small talk, looking up meeting minutes, checking industry news, "
+        "introducing/explaining/analyzing something, summarizing key points). Note: 'introduce/understand/analyze "
+        "something' is NOT an investment decision — it is general.\n"
+        f"User input: {query}\nAnswer: "
     ).content.strip().lower()
     return resp
 
 
 def triage_node(state: InvestState) -> Command[Literal["general", "supervisor"]]:
     """总入口：分诊意图，并重置本轮调研草稿(对话历史 messages 不动)。"""
-    _phase("triage", "意图分诊", "running")
+    _phase("triage", "Intent Triage", "running")
     try:
         kind = _classify(state["query"])
     except Exception as e:
@@ -82,11 +84,13 @@ def triage_node(state: InvestState) -> Command[Literal["general", "supervisor"]]
     mode = "advisory" if goto == "supervisor" else "general"
     logger.info(f"[Triage] 意图={kind} -> {goto}")
     reason = (
-        "判定为『投资决策』：用户在为企业求明确投资建议 → 启动多Agent(内部知识/行业调研/量化分析 → 结构化建议)"
+        "Classified as 『Investment Decision』: the user is seeking a clear investment recommendation → "
+        "launch multi-agent (Internal Knowledge / Industry Research / Quant Analysis → structured advice)"
         if mode == "advisory"
-        else "判定为『一般问答』：查询/了解/咨询类，非投资决策 → 交通用助手(自动选 RAG 或联网)直接作答"
+        else "Classified as 『General Q&A』: a lookup/understanding/consulting question, not an investment "
+        "decision → answered directly by the general assistant (auto-selecting RAG or web search)"
     )
-    _phase("triage", "意图分诊", "done", mode=mode, detail=reason)
+    _phase("triage", "Intent Triage", "done", mode=mode, detail=reason)
     reset = {
         "visited": _RESET,
         "internal_notes": "", "research_notes": "", "analysis_notes": "",
@@ -101,7 +105,7 @@ def general_node(state: InvestState) -> dict:
     from src.agent.react_agent import Assistant
     if _general_agent is None:
         _general_agent = Assistant()
-    _phase("general", "通用助手作答", "running")
+    _phase("general", "Assistant", "running")
     answer = ""
     ntok = nreason = 0
     for ev in _general_agent.stream_run(state["messages"]):
@@ -120,8 +124,8 @@ def general_node(state: InvestState) -> dict:
         elif kind == "final":
             answer = ev[1]
     logger.info(f"[general] 思考链块={nreason}, 答案 token={ntok}")
-    answer = answer or "（未获得回答）"
-    _phase("general", "通用助手作答", "done")
+    answer = answer or "(No answer.)"
+    _phase("general", "Assistant", "done")
     return {"messages": [AIMessage(content=answer)]}
 
 
@@ -132,10 +136,11 @@ def _select_experts(query: str) -> list[str]:
     默认 research+analysis；仅当问题明确涉及内部纪要/会员经验时才加 knowledge。
     """
     resp = chat_model.invoke(
-        "投资决策问题，选择要【并行】调用的专家。\n"
-        "默认只用 research(行业调研/联网) + analysis(量化分析)；\n"
-        "仅当问题明确涉及【商会内部纪要/会员经验/已有决议】时，才再加 knowledge(内部纪要)。\n"
-        f"问题：{query}\n回英文键(逗号分隔)："
+        "Investment-decision question. Choose which experts to call in [parallel].\n"
+        "By default use only research (industry research / web) + analysis (quant analysis);\n"
+        "add knowledge (internal minutes) ONLY when the question clearly involves "
+        "[chamber internal minutes / member experience / existing resolutions].\n"
+        f"Question: {query}\nReply with English keys (comma-separated): "
     ).content.strip().lower()
     picked = [w for w in WORKERS if w in resp]
     for w in ("research", "analysis"):       # 至少 research + analysis
@@ -151,9 +156,9 @@ def supervisor_node(state: InvestState) -> Command:
     except Exception as e:
         logger.warning(f"[Supervisor] 选专家失败, 默认 research+analysis: {e}")
         experts = ["research", "analysis"]
-    labels = "、".join(_LABEL[w] for w in experts)
+    labels = ", ".join(_LABEL[w] for w in experts)
     logger.info(f"[Supervisor] 并行派发 -> {experts}")
-    emit_event({"type": "route", "to": "parallel", "label": f"并行调度 → {labels}"})
+    emit_event({"type": "route", "to": "parallel", "label": f"Parallel dispatch → {labels}"})
     return Command(goto=experts)
 
 
@@ -176,9 +181,9 @@ analysis_node = _worker("analysis", run_analysis)
 
 
 def advisor_node(state: InvestState) -> dict:
-    _phase("advisor", "汇总投资建议", "running")
+    _phase("advisor", "Synthesize Advice", "running")
     advice = build_advice(state)
-    _phase("advisor", "汇总投资建议", "done")
+    _phase("advisor", "Synthesize Advice", "done")
     findings = {
         "research": state.get("research_notes", ""),
         "analysis": state.get("analysis_notes", ""),
@@ -286,11 +291,11 @@ class InvestmentAdvisor:
             t = ev.get("type")
             if t == "phase" and ev.get("status") == "done":
                 if ev["agent"] == "triage":
-                    yield "🧭 投资决策\n" if ev.get("mode") == "advisory" else "💬 一般问答\n"
+                    yield "🧭 Investment Decision\n" if ev.get("mode") == "advisory" else "💬 General Q&A\n"
                 elif ev["agent"] in WORKERS:
-                    yield f"【{ev['label']}】完成\n"
+                    yield f"【{ev['label']}】done\n"
             elif t == "tool":
-                yield f"  ↳ {ev['agent']} 调用 {ev['tool']}\n"
+                yield f"  ↳ {ev['agent']} called {ev['tool']}\n"
             elif t in ("message", "final"):
                 yield ev["content"] + "\n"
 

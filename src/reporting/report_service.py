@@ -20,9 +20,9 @@ def _format_tavily(result) -> str:
         items = result.get("results", [])
         lines = []
         if result.get("answer"):
-            lines.append(f"概要: {result['answer']}")
+            lines.append(f"Summary: {result['answer']}")
         for r in items:
-            lines.append(f"- {r.get('title','')}\n  {r.get('content','')}\n  来源: {r.get('url','')}")
+            lines.append(f"- {r.get('title','')}\n  {r.get('content','')}\n  Source: {r.get('url','')}")
         return "\n".join(lines) if lines else str(result)
     return str(result)
 
@@ -37,7 +37,7 @@ class ReportService:
         material = _format_tavily(self.tavily.invoke({"query": topic}))
         prompt = ChatPromptTemplate.from_messages([
             ("system", self.report_prompt),
-            ("user", "报告主题：{topic}\n生成日期：{today}\n\n在线检索到的资料如下：\n{material}"),
+            ("user", "Report topic: {topic}\nDate: {today}\n\nMaterials retrieved online:\n{material}"),
         ])
         chain = prompt | chat_model | StrOutputParser()
         report = chain.invoke({"topic": topic, "today": date.today().isoformat(), "material": material})

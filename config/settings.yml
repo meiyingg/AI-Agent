@@ -17,6 +17,7 @@ paths:
   memory_db: data/store/memory.sqlite        # 短期记忆: LangGraph checkpointer (会话历史)
   profile_json: data/store/profile.json      # 长期记忆: 全局企业档案 (跨会话, 单一档案)
   threads_json: data/store/threads.json      # 会话注册表 (历史会话列表: id/标题/时间)
+  reports_json: data/store/reports.json      # 投资报告记录 (决策记录页: 可回看历史报告)
   kb_dir: data/store/kb                      # 知识库语料(上传文档抽取/音视频转写后的文本)
   uploads_dir: data/store/uploads            # 上传的原始文件(文档/音视频)
   reports_dir: reports

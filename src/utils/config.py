@@ -68,7 +68,7 @@ def update_settings(section: str, patch: dict) -> dict:
     """更新可写设置：改运行时 conf(立即生效) + 写 override(持久化)。返回该段最新值。"""
     conf = _WRITABLE.get(section)
     if conf is None:
-        raise ValueError(f"不可写的设置段: {section}")
+        raise ValueError(f"Non-writable settings section: {section}")
     conf.update(patch)
     ov = _load_override()
     ov.setdefault(section, {}).update(patch)

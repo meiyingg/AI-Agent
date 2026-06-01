@@ -13,59 +13,59 @@ def _seed(*parts) -> int:
     return int(hashlib.md5("|".join(map(str, parts)).encode("utf-8")).hexdigest(), 16)
 
 
-@tool(description="获取某行业在某地区的市场概况(规模/增速)。入参 industry, region")
+@tool(description="Get a market snapshot (size/growth) for an industry in a region. Args: industry, region")
 @cached
 def market_snapshot(industry: str, region: str) -> str:
     s = _seed("market", industry, region)
     size = 50 + s % 950
     growth = 5 + s % 25
-    return f"[模拟] {region}{industry}市场规模约 {size} 亿元，年增速约 {growth}%。"
+    return f"[Simulated] {region} {industry} market size ≈ RMB {size}00M, annual growth ≈ {growth}%."
 
 
-@tool(description="预估某行业某地区某投资额的投资回报。入参 industry, region, amount_million(投资额,百万)")
+@tool(description="Estimate the investment return for an amount in an industry/region. Args: industry, region, amount_million (investment, in millions)")
 @cached
 def estimate_roi(industry: str, region: str, amount_million: float) -> str:
     s = _seed("roi", industry, region, amount_million)
     roi = 8 + s % 22
     payback = round(100 / max(roi, 1) / 5, 1) + 1
-    return f"[模拟] 预估年化 ROI 约 {roi}%，回本周期约 {payback} 年。"
+    return f"[Simulated] Estimated annualized ROI ≈ {roi}%, payback period ≈ {payback} years."
 
 
-@tool(description="评估某行业某地区的投资风险。入参 industry, region")
+@tool(description="Assess the investment risk for an industry in a region. Args: industry, region")
 @cached
 def risk_score(industry: str, region: str) -> str:
     s = _seed("risk", industry, region)
     score = 1 + s % 10
-    factors = ["汇率波动", "政策不确定", "供应链", "本地审批", "人才短缺", "竞争加剧"]
+    factors = ["FX volatility", "policy uncertainty", "supply chain", "local approvals", "talent shortage", "intensifying competition"]
     picked = [factors[s % len(factors)], factors[(s // 7) % len(factors)]]
-    return f"[模拟] 风险评分 {score}/10，主要风险：{', '.join(set(picked))}。"
+    return f"[Simulated] Risk score {score}/10. Main risks: {', '.join(set(picked))}."
 
 
-@tool(description="估算某方案的建设/运营成本。入参 plan(方案描述), scale(规模描述)")
+@tool(description="Estimate the build/operating cost of a plan. Args: plan (plan description), scale (scale description)")
 @cached
 def cost_estimate(plan: str, scale: str) -> str:
     s = _seed("cost", plan, scale)
     capex = 20 + s % 480
     opex = 5 + s % 95
-    return f"[模拟] 初始投入约 {capex} 百万元，年运营成本约 {opex} 百万元。"
+    return f"[Simulated] Initial capex ≈ RMB {capex}M, annual opex ≈ RMB {opex}M."
 
 
-@tool(description="对比两个方案的优劣并给出推荐。入参 option_a, option_b")
+@tool(description="Compare two options and give a recommendation. Args: option_a, option_b")
 @cached
 def compare_options(option_a: str, option_b: str) -> str:
     s = _seed("cmp", option_a, option_b)
     pick = option_a if s % 2 == 0 else option_b
-    return (f"[模拟] 多维对比(成本/风险/回报/周期)后，推荐：{pick}。"
-            f" 理由：综合得分更高，长期回报与风险更均衡。")
+    return (f"[Simulated] After a multi-dimensional comparison (cost/risk/return/timeline), recommended: {pick}."
+            f" Reason: higher overall score, with better-balanced long-term return and risk.")
 
 
-@tool(description="查询某地区某行业的政策红利(税收/补贴等)。入参 region, industry")
+@tool(description="Look up policy incentives (tax/subsidies, etc.) for an industry in a region. Args: region, industry")
 @cached
 def policy_incentive(region: str, industry: str) -> str:
     s = _seed("policy", region, industry)
     tax = s % 3
-    options = ["进口关税减免", "企业所得税优惠", "土地/厂房补贴", "本地组装(CKD)税收豁免"]
-    return f"[模拟] {region}对{industry}提供：{options[tax]}、{options[(tax + 1) % 4]}。"
+    options = ["import-tariff reduction", "corporate income-tax breaks", "land/factory subsidies", "local-assembly (CKD) tax exemption"]
+    return f"[Simulated] {region} offers {industry}: {options[tax]}, {options[(tax + 1) % 4]}."
 
 
 ANALYSIS_TOOLS = [market_snapshot, estimate_roi, risk_score,

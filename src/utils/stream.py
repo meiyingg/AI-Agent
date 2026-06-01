@@ -28,7 +28,7 @@ def summarize_tool_result(raw: str) -> str:
         return raw[:800]
     parts = []
     if d.get("answer"):
-        parts.append(f"概要：{d['answer']}\n")
+        parts.append(f"Summary: {d['answer']}\n")
     for i, r in enumerate(d.get("results") or [], 1):       # 显示全部结果
         title = r.get("title", "")
         content = str(r.get("content", "")).strip()[:350]

@@ -79,14 +79,20 @@ class MeetingKB:
 
     # ---------- 问答 ----------
     def search(self, query: str) -> str:
+        return self.search_with_sources(query)[0]
+
+    def search_with_sources(self, query: str) -> tuple[str, list[str]]:
+        """返回 (答案, 命中来源文件列表)，供答案溯源。"""
         docs = self.retriever().invoke(query)
         if not docs:
-            return "未在文档中检索到相关内容。"
+            return "No relevant content found in the documents.", []
         context = "\n\n".join(
-            f"【片段{i}】来源:{d.metadata.get('source', '')}\n{d.page_content}"
+            f"[Snippet {i}] source:{d.metadata.get('source', '')}\n{d.page_content}"
             for i, d in enumerate(docs, 1)
         )
-        return self.chain.invoke({"input": query, "context": context})
+        answer = self.chain.invoke({"input": query, "context": context})
+        sources = list(dict.fromkeys(d.metadata.get("source", "") for d in docs if d.metadata.get("source")))
+        return answer, sources
 
 
 if __name__ == "__main__":

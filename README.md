@@ -136,21 +136,20 @@ meeting-insight-agent/
 ├── data/
 │   ├── samples/               # 内部文档/会议纪要 (RAG 数据)
 │   └── eval/qa.jsonl          # 检索评测问答集
-├── src/
-│   ├── models/factory.py      # 模型工厂 (chat + embedding)
-│   ├── rag/
-│   │   ├── vector_store.py     # Chroma 向量库封装
-│   │   ├── retriever.py        # ★混合检索(BM25+向量) + DashScope 重排
-│   │   └── meeting_kb.py       # 文档入库(MD5去重) + 高级检索 + LCEL 生成
-│   ├── agent/
-│   │   ├── tools.py            # search_meeting_minutes / generate_decision_report
-│   │   ├── middleware.py       # 日志 + 动态切换提示词(报告模式)
-│   │   └── react_agent.py      # 统一 Agent (+ LangChain 官方 TavilySearch)
-│   ├── reporting/report_service.py  # Tavily 实时检索 -> 行业洞察报告
-│   ├── eval/evaluator.py       # Recall@k 评测
-│   ├── ingestion/synthetic.py  # 生成示例文档
-│   └── utils/                  # 配置/日志/路径/文件
-└── tests/test_pipeline.py      # 纯 Python 测试 (无需 Key)
+└── src/
+    ├── models/factory.py      # 模型工厂 (chat + embedding)
+    ├── rag/
+    │   ├── vector_store.py     # Chroma 向量库封装
+    │   ├── retriever.py        # ★混合检索(BM25+向量) + DashScope 重排
+    │   └── meeting_kb.py       # 文档入库(MD5去重) + 高级检索 + LCEL 生成
+    ├── agent/
+    │   ├── tools.py            # search_meeting_minutes / generate_decision_report
+    │   ├── middleware.py       # 日志 + 动态切换提示词(报告模式)
+    │   └── react_agent.py      # 统一 Agent (+ LangChain 官方 TavilySearch)
+    ├── reporting/report_service.py  # Tavily 实时检索 -> 行业洞察报告
+    ├── eval/evaluator.py       # Recall@k 评测
+    ├── ingestion/synthetic.py  # 生成示例文档
+    └── utils/                  # 配置/日志/路径/文件
 ```
 
 ---
@@ -165,7 +164,6 @@ copy .env.example .env        # 填 DASHSCOPE_API_KEY 和 TAVILY_API_KEY
 
 无需 Key：
 ```bash
-python tests/test_pipeline.py        # 去重/合成/Recall指标/配置 全通过
 python main.py gen-meetings -n 20    # 生成示例文档
 ```
 

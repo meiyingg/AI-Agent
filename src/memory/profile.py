@@ -79,16 +79,16 @@ def profile_text() -> str:
     p = load_profile()
     lines = []
     if p.get("profile"):
-        lines.append(f"企业画像：{p['profile']}")
+        lines.append(f"Company profile: {p['profile']}")
     if p.get("preferences"):
-        lines.append(f"偏好：{p['preferences']}")
+        lines.append(f"Preferences: {p['preferences']}")
     if p.get("facts"):
-        lines.append("关键事实：" + "；".join(p["facts"]))
+        lines.append("Key facts: " + "; ".join(p["facts"]))
     if p.get("history"):
-        lines.append(f"历史结论：{p['history']}")
+        lines.append(f"Past conclusions: {p['history']}")
     if not lines:
         return ""
-    return "【企业长期档案 (背景参考, 非硬约束)】\n" + "\n".join(lines)
+    return "[Company long-term profile (background reference, not a hard constraint)]\n" + "\n".join(lines)
 
 
 # ============================================================
@@ -104,7 +104,7 @@ def _messages_to_text(messages, limit: int = 12) -> str:
         if content is None and isinstance(m, dict):
             content = m.get("content", "")
         if content:
-            tag = {"human": "用户", "user": "用户", "ai": "助手", "assistant": "助手"}.get(role, role)
+            tag = {"human": "User", "user": "User", "ai": "Assistant", "assistant": "Assistant"}.get(role, role)
             out.append(f"{tag}: {content}")
     return "\n".join(out)
 
@@ -113,13 +113,13 @@ def extract_facts(conversation: str) -> list[str]:
     """从对话中提炼值得长期记住的企业关键信息 (最多6条短句)。"""
     from src.models.factory import chat_model
     resp = chat_model.invoke(
-        "你在维护一家企业的长期档案。请从下面对话中提炼值得长期记住的企业关键信息："
-        "所属行业、主营产品、目标市场、规模、风险偏好、"
-        "重要进展或决定(如获批/选址/投产/合作/融资)。\n"
-        "规则：每条一句话、客观具体；可以是重要进展(不必是永久不变的属性)；"
-        "只在对话完全没有任何企业相关信息时才回 NONE。\n"
-        "直接每行输出一条，不要编号、不要解释、不要客套。\n\n"
-        f"对话：\n{conversation}\n\n企业关键信息："
+        "You maintain a company's long-term profile. From the conversation below, distill the key company "
+        "information worth remembering long-term: industry, main products, target markets, size, risk appetite, "
+        "and important progress or decisions (e.g. approvals/site selection/production start/partnerships/financing).\n"
+        "Rules: one objective, specific sentence each; it may be important progress (need not be a permanent "
+        "attribute); reply NONE only if the conversation has no company-related info at all.\n"
+        "Output one item per line, with no numbering, explanation, or pleasantries.\n\n"
+        f"Conversation:\n{conversation}\n\nKey company info: "
     ).content.strip()
     if not resp or resp.upper().startswith("NONE"):
         return []

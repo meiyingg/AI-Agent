@@ -30,7 +30,7 @@ def cmd_gen_meetings(args):
     from src.utils.config import abs_of
     out = args.out or abs_of("meetings_dir")
     paths = generate_files(args.count, out)
-    print(f"[gen-meetings] 已生成 {len(paths)} 份示例会议纪要 -> {out}")
+    print(f"[gen-meetings] Generated {len(paths)} sample meeting minutes -> {out}")
 
 
 def cmd_ingest_meetings(args):
@@ -64,29 +64,29 @@ def cmd_advise(args):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="智能助手 CLI (会议RAG + 在线检索决策)")
+    p = argparse.ArgumentParser(description="AI Assistant CLI (meeting RAG + online-search decisions)")
     sub = p.add_subparsers(dest="command", required=True)
 
-    g = sub.add_parser("gen-meetings", help="生成示例会议纪要")
+    g = sub.add_parser("gen-meetings", help="Generate sample meeting minutes")
     g.add_argument("-n", "--count", type=int, default=20)
     g.add_argument("--out", default="")
     g.set_defaults(func=cmd_gen_meetings)
 
-    sub.add_parser("ingest-meetings", help="会议纪要入库(MD5去重+向量化)").set_defaults(func=cmd_ingest_meetings)
+    sub.add_parser("ingest-meetings", help="Index meeting minutes (MD5 dedup + embedding)").set_defaults(func=cmd_ingest_meetings)
 
-    a = sub.add_parser("ask", help="与 Agent 对话(自动分流)")
+    a = sub.add_parser("ask", help="Chat with the Agent (auto-routing)")
     a.add_argument("query", type=str)
     a.set_defaults(func=cmd_ask)
 
-    r = sub.add_parser("report", help="生成行业洞察报告")
+    r = sub.add_parser("report", help="Generate an industry-insight report")
     r.add_argument("topic", type=str)
     r.set_defaults(func=cmd_report)
 
-    ev = sub.add_parser("evaluate", help="检索评测 Recall@k (基线 vs 混合+重排)")
+    ev = sub.add_parser("evaluate", help="Retrieval eval Recall@k (baseline vs hybrid+rerank)")
     ev.add_argument("-k", type=int, default=None)
     ev.set_defaults(func=cmd_evaluate)
 
-    ad = sub.add_parser("advise", help="多Agent投资顾问 (Supervisor+4子Agent)")
+    ad = sub.add_parser("advise", help="Multi-agent investment advisor (Supervisor + sub-agents)")
     ad.add_argument("query", type=str)
     ad.set_defaults(func=cmd_advise)
     return p

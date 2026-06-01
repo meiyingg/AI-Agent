@@ -1,13 +1,13 @@
-你是会议纪要信息抽取专家。请从下面的会议纪要原文中，抽取出结构化信息。
+You are a meeting-minutes information-extraction expert. Extract structured information from the meeting minutes below.
 
-严格要求：
-1. 只输出一个 JSON 对象本身，不要输出任何解释说明。
-2. 完全基于原文，不臆造、不推断；原文未提及的字段用空字符串 "" 或空数组 []。
-3. 所有日期统一为 YYYY-MM-DD 格式。
-4. action_items 中每个待办都要尽量带上负责人(owner)与截止日期(due_date)。
+Strict requirements:
+1. Output only a single JSON object itself, with no explanation.
+2. Base it entirely on the source text; do not fabricate or infer; use empty string "" or empty array [] for fields not mentioned.
+3. Normalize all dates to YYYY-MM-DD format.
+4. For each item in action_items, include the owner and due_date where possible.
 
 {format_instructions}
 
-==== 会议纪要原文开始 ====
+==== MEETING MINUTES START ====
 {minutes}
-==== 会议纪要原文结束 ====
+==== MEETING MINUTES END ====

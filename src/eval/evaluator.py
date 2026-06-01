@@ -75,11 +75,11 @@ def evaluate(k: int = None) -> dict:
 
 
 def _print(r: dict):
-    print("\n========= 检索评测 (Recall@%d) =========" % r["k"])
-    print(f"问答样本数: {r['n']}")
-    print(f"baseline (纯向量)      : {r['baseline_recall'] * 100:.1f}%")
+    print("\n========= Retrieval Eval (Recall@%d) =========" % r["k"])
+    print(f"QA samples: {r['n']}")
+    print(f"baseline (vector-only) : {r['baseline_recall'] * 100:.1f}%")
     print(f"advanced ({r['advanced_mode']}): {r['advanced_recall'] * 100:.1f}%")
-    print("=======================================\n")
+    print("==============================================\n")
 
 
 if __name__ == "__main__":

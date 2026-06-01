@@ -29,7 +29,8 @@ from pydantic import BaseModel
 from src.graph.supervisor import InvestmentAdvisor
 from src.memory.profile import load_profile, save_profile
 from src.memory.threads import list_threads, touch_thread
-from src.rag.kb_service import kind_of, process_upload, list_docs, delete_doc
+from src.memory.reports import save_report, list_reports, get_report, delete_report
+from src.rag.kb_service import kind_of, process_upload, list_docs, delete_doc, search_chunks, get_doc_text
 from src.utils.config import (
     abs_of, update_settings,
     model_conf, memory_conf, multiagent_conf, kb_conf,
@@ -69,6 +70,11 @@ def chat(req: ChatReq):
         yield _sse({"type": "thread", "thread_id": tid})
         try:
             for ev in advisor.execute_events(req.message, thread_id=tid):
+                if ev.get("type") == "final" and ev.get("report"):
+                    try:
+                        save_report(tid, req.message, ev.get("report") or {}, ev.get("findings") or {})
+                    except Exception:
+                        logger.warning("[Reports] 保存失败")
                 yield _sse(ev)
             advisor.maybe_learn(tid)          # 阶段3b: 对话结束自动提炼(默认关)
         except Exception as e:
@@ -119,6 +125,15 @@ def get_thread(thread_id: str):
 KB_JOBS: dict = {}   # job_id -> {id, name, kind, status, error?, doc?}
 
 
+def _discard(path: str) -> None:
+    """删除原始上传文件：提取/转写后的文本已存入 kb_dir，原文件不再被使用。"""
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        logger.warning(f"[KB] 清理原始上传失败: {path}")
+
+
 def _kb_job(job_id: str, raw_path: str, name: str):
     """后台任务：音视频转写 + 入库(慢)。"""
     try:
@@ -127,6 +142,8 @@ def _kb_job(job_id: str, raw_path: str, name: str):
     except Exception as e:
         logger.exception(f"[KB] 后台处理失败 {name}")
         KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "error", "error": str(e)}
+    finally:
+        _discard(raw_path)
 
 
 @app.post("/api/kb/upload")
@@ -139,7 +156,7 @@ async def kb_upload(files: list[UploadFile] = File(...)):
         name = f.filename or "file"
         kind = kind_of(name)
         if not kind:
-            results.append({"name": name, "status": "error", "error": "不支持的文件类型"})
+            results.append({"name": name, "status": "error", "error": "Unsupported file type"})
             continue
         raw_path = os.path.join(up_dir, f"{uuid.uuid4().hex[:8]}_{os.path.basename(name)}")
         with open(raw_path, "wb") as out:
@@ -151,6 +168,8 @@ async def kb_upload(files: list[UploadFile] = File(...)):
             except Exception as e:
                 logger.exception(f"[KB] 文档处理失败 {name}")
                 results.append({"name": name, "status": "error", "error": str(e)})
+            finally:
+                _discard(raw_path)
         else:                                       # 音视频 → 后台转写
             job_id = uuid.uuid4().hex[:10]
             KB_JOBS[job_id] = {"id": job_id, "name": name, "kind": kind, "status": "processing"}
@@ -169,10 +188,26 @@ def kb_list():
     return {"docs": list_docs()}
 
 
+@app.get("/api/kb/docs/{doc_id}/content")
+def kb_doc_content(doc_id: str):
+    """查看某份已入库资料的提取文本(AI 实际读到的内容)。"""
+    return {"text": get_doc_text(doc_id) or ""}
+
+
 @app.delete("/api/kb/docs/{doc_id}")
 def kb_delete(doc_id: str):
     delete_doc(doc_id)
     return {"ok": True}
+
+
+class KbSearchReq(BaseModel):
+    query: str
+
+
+@app.post("/api/kb/search")
+def kb_search(req: KbSearchReq):
+    """RAG 检索预览：返回命中的片段(透明展示混合检索+重排)。"""
+    return {"results": search_chunks(req.query)}
 
 
 # ============================================================
@@ -211,6 +246,22 @@ class SettingsPatch(BaseModel):
 @app.put("/api/settings")
 def put_settings(body: SettingsPatch):
     return update_settings(body.section, body.patch)
+
+
+@app.get("/api/reports")
+def get_reports():
+    return list_reports()
+
+
+@app.get("/api/reports/{rid}")
+def get_report_detail(rid: str):
+    return get_report(rid) or {}
+
+
+@app.delete("/api/reports/{rid}")
+def del_report(rid: str):
+    delete_report(rid)
+    return {"ok": True}
 
 
 @app.get("/api/health")

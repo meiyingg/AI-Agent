@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode, type ComponentType } from "react";
+import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { Settings, Cpu, Brain, Network, Database, Sun, Moon, Monitor, Info, ExternalLink, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,61 +23,62 @@ export function SettingsView() {
   async function toggleMemory(key: string, val: boolean) {
     setS((prev) => (prev ? { ...prev, memory: { ...prev.memory, [key]: val } } : prev));
     await putSettings("memory", { [key]: val });
+    toast.success("Settings updated");
   }
 
   return (
-    <PageContainer title="设置" subtitle="模型、记忆、多 Agent、外观与关于。" icon={Settings}>
+    <PageContainer title="Settings" subtitle="Models, memory, multi-agent, appearance, and about." icon={Settings}>
       {loading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
       ) : !s ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          后端未返回设置（可能未重启）。请 <code>Ctrl+C → python server/main.py</code> 重启后端后刷新。
+          The backend returned no settings (it may not have been restarted). Please run <code>Ctrl+C → python server/main.py</code> to restart the backend, then refresh.
         </div>
       ) : (
         <div className="space-y-4">
-          <Card icon={Cpu} title="模型">
-            <Row k="对话 / 分诊 / 报告" v={String(s.model.chat_model_name)} />
-            <Row k="推理 (思考链)" v={String(s.model.reasoning_model_name)} />
-            <Row k="向量化" v={String(s.model.embedding_model_name)} />
+          <Card icon={Cpu} title="Models">
+            <Row k="Chat / Triage / Report" v={String(s.model.chat_model_name)} />
+            <Row k="Reasoning (CoT)" v={String(s.model.reasoning_model_name)} />
+            <Row k="Embedding" v={String(s.model.embedding_model_name)} />
           </Card>
 
-          <Card icon={Brain} title="记忆">
+          <Card icon={Brain} title="Memory">
             <ToggleRow
-              k="长期档案注入"
-              desc="把企业档案作为背景注入问答与投资建议"
+              k="Long-term profile injection"
+              desc="Inject the company profile as background into Q&A and investment advice"
               on={!!s.memory.profile_inject}
               onChange={(v) => toggleMemory("profile_inject", v)}
             />
             <ToggleRow
-              k="对话结束自动提炼"
-              desc="自动从对话中提炼企业事实并入档案"
+              k="Auto-extract after chat"
+              desc="Automatically distill company facts from chats into the profile"
               on={!!s.memory.auto_extract}
               onChange={(v) => toggleMemory("auto_extract", v)}
             />
-            <Row k="档案事实上限" v={String(s.memory.profile_max_facts ?? "-")} />
+            <Row k="Max profile facts" v={String(s.memory.profile_max_facts ?? "-")} />
           </Card>
 
-          <Card icon={Network} title="多 Agent">
-            <Row k="最少调研专家数" v={String(s.multiagent.min_workers ?? "-")} />
-            <Row k="递归上限" v={String(s.multiagent.recursion_limit ?? "-")} />
+          <Card icon={Network} title="Multi-Agent">
+            <Row k="Min research experts" v={String(s.multiagent.min_workers ?? "-")} />
+            <Row k="Recursion limit" v={String(s.multiagent.recursion_limit ?? "-")} />
           </Card>
 
-          <Card icon={Database} title="知识库 / 转写">
-            <Row k="语音识别模型" v={String(s.kb.asr_model ?? "-")} />
-            <Row k="分段秒数" v={String(s.kb.asr_segment_seconds ?? "-")} />
-            <Row k="单文件上限(MB)" v={String(s.kb.max_upload_mb ?? "-")} />
+          <Card icon={Database} title="Knowledge Base / Transcription">
+            <Row k="ASR model" v={String(s.kb.asr_model ?? "-")} />
+            <Row k="Segment seconds" v={String(s.kb.asr_segment_seconds ?? "-")} />
+            <Row k="Max file size (MB)" v={String(s.kb.max_upload_mb ?? "-")} />
           </Card>
 
-          <Card icon={Sun} title="外观">
+          <Card icon={Sun} title="Appearance">
             <div className="flex items-center justify-between py-1.5">
-              <span className="text-sm">主题</span>
+              <span className="text-sm">Theme</span>
               <div className="flex gap-1 rounded-lg border p-0.5">
                 {[
-                  { v: "light", Icon: Sun, label: "亮" },
-                  { v: "dark", Icon: Moon, label: "暗" },
-                  { v: "system", Icon: Monitor, label: "跟随" },
+                  { v: "light", Icon: Sun, label: "Light" },
+                  { v: "dark", Icon: Moon, label: "Dark" },
+                  { v: "system", Icon: Monitor, label: "System" },
                 ].map(({ v, Icon, label }) => (
                   <button
                     key={v}
@@ -94,12 +96,12 @@ export function SettingsView() {
             </div>
           </Card>
 
-          <Card icon={Info} title="关于">
-            <Row k="项目" v="商会企业投资顾问 · 多 Agent + RAG + 长期记忆" />
+          <Card icon={Info} title="About">
+            <Row k="Project" v="Chamber Investment Advisor · Multi-Agent + RAG + Long-term Memory" />
           </Card>
 
           <p className="px-1 text-xs text-muted-foreground">
-            注：模型与参数为只读展示；开关即时生效并持久化。需要改模型名/参数可在 config/settings.yml 调整后重启后端。
+            Note: models and parameters are read-only; toggles take effect immediately and persist. To change model names/parameters, edit config/settings.yml and restart the backend.
           </p>
         </div>
       )}

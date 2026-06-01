@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChatPanel, type ChatMsg } from "@/components/chat-panel";
 import { Worktable, type RunState, type Activity } from "@/components/worktable";
 import { Sessions } from "@/components/sessions";
+import { cn } from "@/lib/utils";
 import { streamChat, listThreads, getThread, type Thread } from "@/lib/api";
 
 const EMPTY_RUN: RunState = { mode: undefined, items: [], report: null, active: false };
@@ -11,7 +12,7 @@ const EMPTY_RUN: RunState = { mode: undefined, items: [], report: null, active: 
 let _c = 0;
 const uid = () => `${Date.now()}-${_c++}`;
 
-export function ChatView() {
+export function ChatView({ showWorktable = true }: { showWorktable?: boolean }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [run, setRun] = useState<RunState>(EMPTY_RUN);
   const [loading, setLoading] = useState(false);
@@ -155,14 +156,14 @@ export function ChatView() {
           case "error": {
             const id = uid();
             const msg = e.message;
-            setMessages((m) => [...m, { id, role: "assistant", content: `出错了：${msg}`, kind: "text" }]);
+            setMessages((m) => [...m, { id, role: "assistant", content: `Error: ${msg}`, kind: "text" }]);
             break;
           }
         }
       });
     } catch (err) {
       const id = uid();
-      setMessages((m) => [...m, { id, role: "assistant", content: `请求失败：${String(err)}`, kind: "text" }]);
+      setMessages((m) => [...m, { id, role: "assistant", content: `Request failed: ${String(err)}`, kind: "text" }]);
     } finally {
       setLoading(false);
       streamIdRef.current = null;
@@ -206,12 +207,14 @@ export function ChatView() {
       <aside className="hidden w-[210px] shrink-0 flex-col border-r lg:flex">
         <Sessions threads={threads} activeId={activeThread} loading={loading} onSelect={selectThread} onNew={newChat} />
       </aside>
-      <div className="flex min-h-0 w-[40%] min-w-[300px] flex-col border-r">
+      <div className={cn("flex min-h-0 flex-col", showWorktable ? "w-[40%] min-w-[300px] border-r" : "flex-1")}>
         <ChatPanel messages={messages} loading={loading} onSend={handleSend} />
       </div>
-      <div className="min-h-0 flex-1">
-        <Worktable run={run} question={lastQuestion} />
-      </div>
+      {showWorktable && (
+        <div className="min-h-0 flex-1">
+          <Worktable run={run} question={lastQuestion} />
+        </div>
+      )}
     </div>
   );
 }

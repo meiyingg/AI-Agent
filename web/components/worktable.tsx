@@ -21,7 +21,9 @@ import {
   ChevronRight,
   ArrowDownRight,
   FileDown,
+  Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -76,15 +78,15 @@ const AGENT_ICON: Record<string, ComponentType<{ className?: string }>> = {
 };
 
 const TOOL_LABEL: Record<string, string> = {
-  tavily_search: "联网搜索",
-  search_meeting_minutes: "检索会议纪要",
-  market_snapshot: "市场概况",
-  estimate_roi: "测算 ROI",
-  risk_score: "风险评分",
-  cost_estimate: "成本估算",
-  compare_options: "方案对比",
-  policy_incentive: "政策红利",
-  generate_decision_report: "生成报告",
+  tavily_search: "Web Search",
+  search_meeting_minutes: "Search Minutes",
+  market_snapshot: "Market Snapshot",
+  estimate_roi: "Estimate ROI",
+  risk_score: "Risk Score",
+  cost_estimate: "Cost Estimate",
+  compare_options: "Compare Options",
+  policy_incentive: "Policy Incentives",
+  generate_decision_report: "Generate Report",
 };
 
 export function Worktable({ run, question }: { run: RunState; question: string }) {
@@ -95,11 +97,11 @@ export function Worktable({ run, question }: { run: RunState; question: string }
       <div className="flex h-12 items-center justify-between border-b bg-background/60 px-4">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Cpu className="size-4 text-primary" />
-          Agent 工作台
+          Agent Worktable
         </div>
         {run.mode && (
           <Badge variant={run.mode === "advisory" ? "default" : "secondary"}>
-            {run.mode === "advisory" ? "投资决策" : "一般问答"}
+            {run.mode === "advisory" ? "Investment Decision" : "General Q&A"}
           </Badge>
         )}
       </div>
@@ -124,11 +126,10 @@ function EmptyState() {
       <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary/10">
         <Cpu className="size-6 text-primary" />
       </div>
-      <p className="text-sm font-medium">多 Agent 实时工作台</p>
+      <p className="text-sm font-medium">Multi-Agent Live Worktable</p>
       <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground">
-        在左侧提问。投资决策类问题会在这里实时展示
-        <span className="text-foreground">意图分诊 → 派单调度 → 专家调研(含工具调用) → 结构化建议</span>
-        的全过程。
+        Ask on the left. Investment-decision questions show the full process here in real time:
+        <span className="text-foreground"> Intent Triage → Dispatch → Expert Research (incl. tool calls) → Structured Advice</span>.
       </p>
     </div>
   );
@@ -179,7 +180,7 @@ function PhaseRow({ item }: { item: PhaseItem }) {
         </div>
         <span className="text-sm font-medium">{item.label}</span>
         {running ? (
-          <span className="text-xs text-muted-foreground">进行中…</span>
+          <span className="text-xs text-muted-foreground">Running…</span>
         ) : (
           <CheckCircle2 className="size-3.5 text-emerald-500" />
         )}
@@ -236,7 +237,7 @@ function PhaseRow({ item }: { item: PhaseItem }) {
           {item.detail && (
             <div>
               <div className="mb-0.5 mt-1.5 flex items-center gap-1 font-medium text-foreground/70">
-                <FileText className="size-3" /> 结论
+                <FileText className="size-3" /> Conclusion
               </div>
               <div className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted/60 p-2 leading-relaxed text-foreground/80">
                 {item.detail}
@@ -269,7 +270,7 @@ function ReasoningPanel({ text, running }: { text: string; running: boolean }) {
   return (
     <div className="rounded-md bg-primary/5 p-2">
       <div className="mb-1 flex items-center gap-1 font-medium text-primary/80">
-        <Brain className="size-3" /> 思考过程
+        <Brain className="size-3" /> Reasoning
       </div>
       <div
         ref={ref}
@@ -297,21 +298,35 @@ function ClampText({ text }: { text: string }) {
           onClick={() => setOpen((v) => !v)}
           className="mt-0.5 text-[11px] text-primary hover:underline"
         >
-          {open ? "收起" : "展开全部"}
+          {open ? "Collapse" : "Show all"}
         </button>
       )}
     </div>
   );
 }
 
+function reportToText(report: Report, question: string): string {
+  const sec = (t: string, items?: string[]) =>
+    items && items.length ? `\n## ${t}\n${items.map((x) => `- ${x}`).join("\n")}\n` : "";
+  return (
+    `# Investment Recommendation Report\n\nQuestion: ${question}\nDecision: ${report.decision} ｜ Confidence: ${report.confidence}\n\n${report.summary || ""}\n` +
+    (report.analysis ? `\n## Detailed Analysis\n${report.analysis}\n` : "") +
+    sec("Rationale", report.rationale) +
+    sec("Opportunities", report.opportunities) +
+    sec("Risks", report.risks) +
+    sec("Next Steps", report.actions) +
+    sec("Sources", report.sources)
+  );
+}
+
 const DECISION_STYLE: Record<string, string> = {
-  进入: "bg-emerald-500 text-white",
-  暂缓: "bg-amber-500 text-white",
-  不进入: "bg-rose-500 text-white",
-  退出: "bg-rose-500 text-white",
+  Enter: "bg-emerald-500 text-white",
+  Hold: "bg-amber-500 text-white",
+  Avoid: "bg-rose-500 text-white",
+  Exit: "bg-rose-500 text-white",
 };
 
-function ReportCard({ report, question, findings }: { report: Report; question: string; findings?: Findings }) {
+export function ReportCard({ report, question, findings }: { report: Report; question: string; findings?: Findings }) {
   const decisionCls =
     DECISION_STYLE[report.decision?.trim()] ?? "bg-primary text-primary-foreground";
   const diagrams = buildDiagrams(report);
@@ -320,23 +335,31 @@ function ReportCard({ report, question, findings }: { report: Report; question: 
     <div className="rounded-xl border bg-background shadow-sm">
       <div className="flex flex-wrap items-center gap-2 border-b p-4">
         <FileText className="size-4 text-primary" />
-        <span className="font-semibold">投资建议报告</span>
+        <span className="font-semibold">Investment Recommendation</span>
         <span className={cn("ml-1 rounded-md px-2 py-0.5 text-xs font-semibold", decisionCls)}>
           {report.decision || "—"}
         </span>
         {report.confidence && (
           <Badge variant="outline" className="text-xs">
-            置信度 {report.confidence}
+            Confidence {report.confidence}
           </Badge>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-auto gap-1.5"
-          onClick={() => exportReportPdf(report, question, findings)}
-        >
-          <FileDown className="size-4" /> 导出 PDF
-        </Button>
+        <div className="ml-auto flex gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => {
+              navigator.clipboard.writeText(reportToText(report, question));
+              toast.success("Report copied");
+            }}
+          >
+            <Copy className="size-4" /> Copy
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportReportPdf(report, question, findings)}>
+            <FileDown className="size-4" /> Export PDF
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4 p-4">
@@ -346,7 +369,7 @@ function ReportCard({ report, question, findings }: { report: Report; question: 
         {report.metrics && Object.keys(report.metrics).length > 0 && (
           <div>
             <div className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold">
-              <TrendingUp className="size-4 text-primary" /> 关键指标
+              <TrendingUp className="size-4 text-primary" /> Key Metrics
             </div>
             <table className="w-full border-collapse text-xs">
               <tbody>
@@ -363,7 +386,7 @@ function ReportCard({ report, question, findings }: { report: Report; question: 
         {report.analysis && (
           <div>
             <div className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold">
-              <FileText className="size-4 text-primary" /> 详细分析
+              <FileText className="size-4 text-primary" /> Detailed Analysis
             </div>
             <Markdown>{report.analysis}</Markdown>
           </div>
@@ -374,10 +397,10 @@ function ReportCard({ report, question, findings }: { report: Report; question: 
             <MermaidView code={d.code} />
           </div>
         ))}
-        <Section icon={TrendingUp} title="依据" items={report.rationale} />
-        <Section icon={Lightbulb} title="机会" items={report.opportunities} tone="emerald" />
-        <Section icon={AlertTriangle} title="风险" items={report.risks} tone="amber" />
-        <Section icon={Target} title="下一步行动" items={report.actions} />
+        <Section icon={TrendingUp} title="Rationale" items={report.rationale} />
+        <Section icon={Lightbulb} title="Opportunities" items={report.opportunities} tone="emerald" />
+        <Section icon={AlertTriangle} title="Risks" items={report.risks} tone="amber" />
+        <Section icon={Target} title="Next Steps" items={report.actions} />
         <SourceSection items={report.sources} />
         <FindingsSection findings={findings} />
       </div>
@@ -389,16 +412,16 @@ function FindingsSection({ findings }: { findings?: Findings }) {
   if (!findings) return null;
   const items = (
     [
-      ["行业调研", findings.research],
-      ["量化分析", findings.analysis],
-      ["内部知识", findings.internal],
+      ["Industry Research", findings.research],
+      ["Quant Analysis", findings.analysis],
+      ["Internal Knowledge", findings.internal],
     ] as [string, string | undefined][]
   ).filter(([, v]) => v && v.trim());
   if (!items.length) return null;
   return (
     <details className="rounded-lg border bg-muted/30 p-3">
       <summary className="cursor-pointer text-sm font-semibold text-foreground/80">
-        调研详情（点击展开）
+        Research details (click to expand)
       </summary>
       <div className="mt-2 space-y-3">
         {items.map(([t, v]) => (
@@ -451,7 +474,7 @@ function SourceSection({ items }: { items?: string[] }) {
     <div>
       <div className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold">
         <Link2 className="size-4 text-primary" />
-        参考来源
+        Sources
       </div>
       <ul className="space-y-1">
         {items.map((it, i) => {
