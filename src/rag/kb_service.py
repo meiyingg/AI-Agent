@@ -17,7 +17,7 @@ from src.utils.config import abs_of, kb_conf
 from src.utils.files import md5_of_text, read_text
 from src.utils.logger import logger
 
-DOC_EXT = {".txt", ".md", ".pdf", ".docx"}
+DOC_EXT = {".txt", ".md", ".pdf", ".docx", ".xlsx"}
 AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 
@@ -80,6 +80,22 @@ def extract_text(path: str, ext: str) -> str:
         import docx
         d = docx.Document(path)
         return "\n".join(p.text for p in d.paragraphs)
+    if ext == ".xlsx":
+        # 公司合同/台账等表格：每个工作表 -> 每行非空单元格用 " | " 拼成一行文本，供 RAG 检索。
+        import openpyxl
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)  # data_only: 取公式计算值
+        lines = []
+        for ws in wb.worksheets:
+            rows = []
+            for row in ws.iter_rows(values_only=True):
+                cells = [str(c).strip() for c in row if c is not None and str(c).strip() != ""]
+                if cells:
+                    rows.append(" | ".join(cells))
+            if rows:
+                lines.append(f"# {ws.title}")
+                lines.extend(rows)
+        wb.close()
+        return "\n".join(lines)
     return ""
 
 

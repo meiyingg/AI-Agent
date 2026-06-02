@@ -33,7 +33,7 @@ import {
 
 const KIND_ICON = { doc: FileText, audio: FileAudio, video: Video } as const;
 const KIND_LABEL = { doc: "Document", audio: "Audio", video: "Video" } as const;
-const ACCEPT = ".txt,.md,.pdf,.docx,.mp3,.wav,.m4a,.aac,.flac,.ogg,.mp4,.mov,.mkv,.avi,.webm";
+const ACCEPT = ".txt,.md,.pdf,.docx,.xlsx,.mp3,.wav,.m4a,.aac,.flac,.ogg,.mp4,.mov,.mkv,.avi,.webm";
 
 interface Job {
   name: string;
@@ -181,7 +181,7 @@ export function KnowledgeView() {
         )}
         <div className="text-sm font-medium">Drag files here, or click to upload</div>
         <div className="text-xs text-muted-foreground">
-          Documents txt/md/pdf/docx · Audio mp3/wav/m4a · Video mp4/mov (media auto-transcribed)
+          Documents txt/md/pdf/docx/xlsx · Audio mp3/wav/m4a · Video mp4/mov (media auto-transcribed)
         </div>
       </div>
       <input

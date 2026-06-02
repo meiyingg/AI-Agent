@@ -9,3 +9,4 @@ data/raw/*.txt
 .idea/
 .venv/
 venv/
+learn/
