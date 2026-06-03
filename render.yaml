@@ -6,6 +6,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
+    region: singapore        # 和 Neon (ap-southeast-1) 同区,避免跨洋延迟
     healthCheckPath: /api/health
     envVars:
       - key: DASHSCOPE_API_KEY
