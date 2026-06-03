@@ -10,8 +10,10 @@
 import json
 import logging
 import os
+import threading
 
 logger = logging.getLogger("mia")
+_lock = threading.Lock()
 
 # 确保 .env 已加载(无论 import 顺序),再读环境变量
 try:
@@ -45,27 +47,31 @@ def _sa_url() -> str:
 def get_engine():
     global _engine
     if _engine is None:
-        from sqlalchemy import create_engine
-        _engine = create_engine(
-            _sa_url(),
-            pool_pre_ping=True,        # Neon 空闲会休眠,断连自动重建
-            pool_recycle=300,
-            connect_args={"prepare_threshold": None},  # 兼容 Neon pooler(PgBouncer)
-        )
+        with _lock:                    # 防并发首次建多个引擎
+            if _engine is None:
+                from sqlalchemy import create_engine
+                _engine = create_engine(
+                    _sa_url(),
+                    pool_pre_ping=True,        # Neon 空闲会休眠,断连自动重建
+                    pool_recycle=300,
+                    connect_args={"prepare_threshold": None},  # 兼容 Neon pooler(PgBouncer)
+                )
     return _engine
 
 
 def ready():
-    """确保扩展 + kv_store 已建(幂等,只跑一次)。返回引擎。"""
+    """确保扩展 + kv_store 已建(幂等,只跑一次)。返回引擎。线程安全(防并发建扩展)。"""
     global _inited
     eng = get_engine()
     if not _inited:
-        from sqlalchemy import text
-        with eng.begin() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            conn.execute(text("CREATE TABLE IF NOT EXISTS kv_store (key text PRIMARY KEY, value jsonb NOT NULL)"))
-        _inited = True
-        logger.info("[db] Postgres ready (kv_store + pgvector)")
+        with _lock:                    # 双检锁:只让一个线程跑 DDL
+            if not _inited:
+                from sqlalchemy import text
+                with eng.begin() as conn:
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                    conn.execute(text("CREATE TABLE IF NOT EXISTS kv_store (key text PRIMARY KEY, value jsonb NOT NULL)"))
+                _inited = True
+                logger.info("[db] Postgres ready (kv_store + pgvector)")
     return eng
 
 
@@ -92,6 +98,41 @@ def kv_delete(key: str) -> None:
     from sqlalchemy import text
     with ready().begin() as conn:
         conn.execute(text("DELETE FROM kv_store WHERE key=:k"), {"k": key})
+
+
+def registry_upsert(doc_id: str, entry: dict, file_path: str) -> None:
+    """把一份文档**原子地**并入 kb_registry。
+
+    并发上传(多个文件/后台转写线程)时,若用"读整块→改→写回整块"会互相覆盖(lost update);
+    这里用 Postgres 的 jsonb `||` 合并 + 行锁,保证每条各自落库、不丢。
+    """
+    if USE_DB:
+        from sqlalchemy import text
+        with ready().begin() as conn:
+            conn.execute(
+                text("INSERT INTO kv_store(key, value) "
+                     "VALUES ('kb_registry', jsonb_build_object(CAST(:id AS text), CAST(:e AS jsonb))) "
+                     "ON CONFLICT (key) DO UPDATE "
+                     "SET value = kv_store.value || jsonb_build_object(CAST(:id AS text), CAST(:e AS jsonb))"),
+                {"id": doc_id, "e": json.dumps(entry, ensure_ascii=False)},
+            )
+    else:
+        reg = store_load("kb_registry", file_path, {})
+        reg[doc_id] = entry
+        store_save("kb_registry", file_path, reg)
+
+
+def registry_delete(doc_id: str, file_path: str) -> None:
+    """从 kb_registry 原子地移除一条。"""
+    if USE_DB:
+        from sqlalchemy import text
+        with ready().begin() as conn:
+            conn.execute(text("UPDATE kv_store SET value = value - CAST(:id AS text) WHERE key='kb_registry'"),
+                         {"id": doc_id})
+    else:
+        reg = store_load("kb_registry", file_path, {})
+        reg.pop(doc_id, None)
+        store_save("kb_registry", file_path, reg)
 
 
 def store_load(key: str, file_path: str, default):

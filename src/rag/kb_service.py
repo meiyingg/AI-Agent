@@ -153,12 +153,11 @@ def ingest_text(text: str, name: str, kind: str, r2_key: str = "") -> dict:
             f.write(text)                   # 持久 + 供 BM25(load_chunks 会扫 kb_dir)
     kb._mark(doc_id)                         # MD5 台账(本地, 无害)
     kb._retriever = None                     # 失效检索器缓存
-    reg = _load_registry()
-    reg[doc_id] = {"id": doc_id, "name": name, "kind": kind, "chars": len(text),
-                   "chunks": chunks, "added_at": time.time(), "text_file": text_file, "r2_key": r2_key}
-    _save_registry(reg)
+    entry = {"id": doc_id, "name": name, "kind": kind, "chars": len(text),
+             "chunks": chunks, "added_at": time.time(), "text_file": text_file, "r2_key": r2_key}
+    db.registry_upsert(doc_id, entry, _registry_path())   # 原子并入(并发不丢)
     logger.info(f"[KB] 入库 {name} ({kind}) -> {chunks} 分块")
-    return reg[doc_id]
+    return entry
 
 
 def process_upload(raw_path: str, name: str, r2_key: str = "") -> dict:
@@ -222,8 +221,7 @@ def delete_doc(doc_id: str) -> bool:
     from src.utils import db
     kb = _shared_kb()
     kb.store.delete_document(doc_id)             # 删向量分块
-    reg = _load_registry()
-    info = reg.pop(doc_id, None)
+    info = _load_registry().get(doc_id)
     if db.USE_DB:
         db.kv_delete(f"kb_text:{doc_id}")        # 删文本
         if info and info.get("r2_key"):
@@ -232,7 +230,7 @@ def delete_doc(doc_id: str) -> bool:
         tp = os.path.join(_kb_dir(), info["text_file"])
         if os.path.exists(tp):
             os.remove(tp)
-    _save_registry(reg)
+    db.registry_delete(doc_id, _registry_path())   # 原子移除
     # 从 MD5 台账移除(允许日后重新上传)
     try:
         if os.path.exists(kb.ledger_path):
