@@ -16,3 +16,14 @@ services:
         value: admin     # login username (not secret)
       - key: APP_PASSWORD
         sync: false      # login password — set in the dashboard; gate is OFF if blank
+      # ---- 永久存储 (设了才走云端持久化) ----
+      - key: DATABASE_URL          # Neon Postgres 连接串
+        sync: false
+      - key: R2_ENDPOINT_URL       # Cloudflare R2
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
