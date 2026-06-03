@@ -181,6 +181,7 @@ export interface KbUploadResult {
   job_id?: string;
   kind?: string;
   error?: string;
+  duplicate?: boolean;   // 同内容已在库中,被跳过
 }
 
 export async function uploadKb(files: File[]): Promise<KbUploadResult[]> {
@@ -231,7 +232,7 @@ export async function getKbDocOriginal(id: string): Promise<string> {
   }
 }
 
-export async function getKbJob(jobId: string): Promise<{ status: string; doc?: KbDoc; error?: string }> {
+export async function getKbJob(jobId: string): Promise<{ status: string; doc?: KbDoc; error?: string; duplicate?: boolean }> {
   const r = await apiFetch(`/api/kb/jobs/${jobId}`);
   return r.json();
 }

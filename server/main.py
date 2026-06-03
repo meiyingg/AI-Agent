@@ -189,7 +189,8 @@ def _kb_job(job_id: str, raw_path: str, name: str, r2_key: str = ""):
     """后台任务：音视频转写 + 入库(慢)。"""
     try:
         doc = process_upload(raw_path, name, r2_key)
-        KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "done", "doc": doc}
+        dup = bool(doc.pop("duplicate", False))
+        KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "done", "doc": doc, "duplicate": dup}
     except Exception as e:
         logger.exception(f"[KB] 后台处理失败 {name}")
         KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "error", "error": str(e)}
@@ -217,7 +218,8 @@ async def kb_upload(files: list[UploadFile] = File(...)):
         if kind == "doc":
             try:
                 doc = process_upload(raw_path, name, r2_key)
-                results.append({"name": name, "status": "done", "doc": doc})
+                dup = bool(doc.pop("duplicate", False))
+                results.append({"name": name, "status": "done", "doc": doc, "duplicate": dup})
             except Exception as e:
                 logger.exception(f"[KB] 文档处理失败 {name}")
                 results.append({"name": name, "status": "error", "error": str(e)})

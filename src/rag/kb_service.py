@@ -144,7 +144,7 @@ def ingest_text(text: str, name: str, kind: str, r2_key: str = "") -> dict:
     existing = _load_registry().get(doc_id)
     if existing:                              # 同内容已入库 → 跳过,不重复嵌入(去重 + 提速)
         logger.info(f"[KB] 跳过重复(同内容已存在): {name}")
-        return existing
+        return {**existing, "duplicate": True}   # 临时标记,供前端提示,不入库
     kb = _shared_kb()
     chunks = kb.store.add_document(text, doc_id=doc_id, metadata={"source": name, "kind": kind})
     text_file = ""

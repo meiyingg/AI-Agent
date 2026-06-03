@@ -93,8 +93,12 @@ export function KnowledgeView() {
       if (s.status === "done") {
         clearInterval(timer);
         setJobs((j) => j.filter((x) => x.name !== name));
-        toast.success(`${name} transcribed and indexed`);
-        notify({ title: "Transcription done", desc: `${name} transcribed and added to the knowledge base` });
+        if (s.duplicate) {
+          toast.info(`${name} is already in the knowledge base — skipped`);
+        } else {
+          toast.success(`${name} transcribed and indexed`);
+          notify({ title: "Transcription done", desc: `${name} transcribed and added to the knowledge base` });
+        }
         refresh();
       } else if (s.status === "error" || s.status === "unknown") {
         clearInterval(timer);
@@ -112,16 +116,18 @@ export function KnowledgeView() {
       const results = await uploadKb(files);
       const processing = results.filter((r) => r.status === "processing" && r.job_id);
       const errs = results.filter((r) => r.status === "error");
-      const done = results.filter((r) => r.status === "done").length;
+      const dups = results.filter((r) => r.status === "done" && r.duplicate);
+      const fresh = results.filter((r) => r.status === "done" && !r.duplicate).length;
       setJobs((j) => [
         ...j,
         ...processing.map((r) => ({ name: r.name, status: "processing" as const })),
         ...errs.map((r) => ({ name: r.name, status: "error" as const, error: r.error })),
       ]);
-      if (done) {
-        toast.success(`Indexed ${done} file(s)`);
-        notify({ title: "Materials indexed", desc: `${done} document(s) added to the knowledge base` });
+      if (fresh) {
+        toast.success(`Indexed ${fresh} file(s)`);
+        notify({ title: "Materials indexed", desc: `${fresh} document(s) added to the knowledge base` });
       }
+      if (dups.length) toast.info(`Already in the knowledge base, skipped: ${dups.map((r) => r.name).join(", ")}`);
       if (processing.length) toast.info(`Transcribing ${processing.length} media file(s)…`);
       errs.forEach((r) => toast.error(`${r.name}: ${r.error || "processing failed"}`));
       processing.forEach((r) => pollJob(r.job_id!, r.name));
