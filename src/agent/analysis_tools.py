@@ -10,7 +10,7 @@ from src.utils.robust import cached
 
 
 def _seed(*parts) -> int:
-    return int(hashlib.md5("|".join(map(str, parts)).encode("utf-8")).hexdigest(), 16)
+    return int(hashlib.sha256("|".join(map(str, parts)).encode("utf-8")).hexdigest(), 16)
 
 
 @tool(description="Get a market snapshot (size/growth) for an industry in a region. Args: industry, region")

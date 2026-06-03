@@ -14,7 +14,7 @@ from src.utils.logger import logger
 
 def _key(args, kwargs) -> str:
     raw = json.dumps([args, kwargs], default=str, ensure_ascii=False, sort_keys=True)
-    return hashlib.md5(raw.encode("utf-8")).hexdigest()
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def cached(fn):

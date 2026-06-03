@@ -1,27 +1,27 @@
-"""文件相关工具：MD5 指纹、文本读取、目录遍历。"""
+"""文件相关工具：SHA-256 指纹、文本读取、目录遍历。"""
 import os
 import hashlib
 from src.utils.logger import logger
 
 
-def md5_of_text(text: str) -> str:
-    """计算字符串内容的 MD5，用于采集去重。"""
-    return hashlib.md5(text.encode("utf-8")).hexdigest()
+def sha256_of_text(text: str) -> str:
+    """字符串内容的 SHA-256(内容指纹，判"同样的内容")。"""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def md5_of_file(filepath: str, chunk_size: int = 4096) -> str | None:
-    """分块计算文件 MD5，避免大文件爆内存。"""
+def sha256_of_file(filepath: str, chunk_size: int = 8192) -> str | None:
+    """分块计算文件字节的 SHA-256(文件指纹，判"同一个文件"，避免大文件爆内存)。"""
     if not os.path.isfile(filepath):
-        logger.error(f"[md5] 不是文件: {filepath}")
+        logger.error(f"[hash] 不是文件: {filepath}")
         return None
-    md5 = hashlib.md5()
+    h = hashlib.sha256()
     try:
         with open(filepath, "rb") as f:
             while chunk := f.read(chunk_size):
-                md5.update(chunk)
-        return md5.hexdigest()
+                h.update(chunk)
+        return h.hexdigest()
     except Exception as e:
-        logger.error(f"[md5] 计算失败 {filepath}: {e}")
+        logger.error(f"[hash] 计算失败 {filepath}: {e}")
         return None
 
 

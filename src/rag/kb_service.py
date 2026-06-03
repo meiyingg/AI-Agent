@@ -2,7 +2,8 @@
 
 - 文档(txt/md/pdf/docx)：抽取文本(同步, 快)
 - 音视频(mp3/wav/m4a/mp4…)：ffmpeg 转 16k 单声道 → 分段 → DashScope ASR 转写(慢, 走后台任务)
-- 入库：复用共享的 MeetingKB.store(同一个 Chroma 集合) + 保存文本到 kb_dir(供 BM25) + MD5 去重
+- 入库：复用共享的 MeetingKB.store(同一个 Chroma 集合) + 保存文本到 kb_dir(供 BM25)
+- 去重(SHA-256)：上传时按"文件字节指纹"判重(同一个文件不重复入库),该指纹即 doc id
 - 检索器缓存失效：入库/删除后置 kb._retriever=None, 下次检索自动重建(含新文档)
 """
 import glob
@@ -14,7 +15,7 @@ import tempfile
 import time
 
 from src.utils.config import abs_of, kb_conf
-from src.utils.files import md5_of_text, read_text
+from src.utils.files import sha256_of_text, read_text
 from src.utils.logger import logger
 
 DOC_EXT = {".txt", ".md", ".pdf", ".docx", ".xlsx"}
@@ -135,16 +136,12 @@ def transcribe(src_path: str) -> str:
 
 # ---------------- 入库 / 列表 / 删除 ----------------
 
-def ingest_text(text: str, name: str, kind: str, r2_key: str = "") -> dict:
+def ingest_text(text: str, name: str, kind: str, r2_key: str = "", file_hash: str = "") -> dict:
     from src.utils import db
     text = (text or "").strip()
     if not text:
         raise ValueError("No text content extracted")
-    doc_id = md5_of_text(text)
-    existing = _load_registry().get(doc_id)
-    if existing:                              # 同内容已入库 → 跳过,不重复嵌入(去重 + 提速)
-        logger.info(f"[KB] 跳过重复(同内容已存在): {name}")
-        return {**existing, "duplicate": True}   # 临时标记,供前端提示,不入库
+    doc_id = file_hash or sha256_of_text(text)   # 文件字节指纹作 id;无则回退文本指纹
     kb = _shared_kb()
     chunks = kb.store.add_document(text, doc_id=doc_id, metadata={"source": name, "kind": kind})
     text_file = ""
@@ -155,7 +152,7 @@ def ingest_text(text: str, name: str, kind: str, r2_key: str = "") -> dict:
         text_file = f"{_safe_stem(name)}__{doc_id[:8]}.txt"
         with open(os.path.join(_kb_dir(), text_file), "w", encoding="utf-8") as f:
             f.write(text)                   # 持久 + 供 BM25(load_chunks 会扫 kb_dir)
-    kb._mark(doc_id)                         # MD5 台账(本地, 无害)
+    kb._mark(doc_id)                         # 哈希台账(本地, 无害)
     kb._retriever = None                     # 失效检索器缓存
     entry = {"id": doc_id, "name": name, "kind": kind, "chars": len(text),
              "chunks": chunks, "added_at": time.time(), "text_file": text_file, "r2_key": r2_key}
@@ -164,8 +161,8 @@ def ingest_text(text: str, name: str, kind: str, r2_key: str = "") -> dict:
     return entry
 
 
-def process_upload(raw_path: str, name: str, r2_key: str = "") -> dict:
-    """根据类型抽取/转写 → 入库。r2_key: 原始文件在 R2 的 key(可空)。返回注册信息。"""
+def process_upload(raw_path: str, name: str, r2_key: str = "", file_hash: str = "") -> dict:
+    """根据类型抽取/转写 → 入库。r2_key: 原始文件在 R2 的 key(可空)。file_hash: 文件字节指纹。返回注册信息。"""
     ext = os.path.splitext(name)[1].lower()
     kind = kind_of(name)
     if kind == "doc":
@@ -174,16 +171,19 @@ def process_upload(raw_path: str, name: str, r2_key: str = "") -> dict:
         text = transcribe(raw_path)
     else:
         raise ValueError(f"Unsupported file type: {ext}")
-    doc = ingest_text(text, name, kind, r2_key)
-    if r2_key and doc.get("r2_key") != r2_key:   # 命中去重 → 删掉本次多传到 R2 的原件,避免孤儿
-        from src.utils import db
-        if db.USE_R2:
-            db.r2_delete(r2_key)
-    return doc
+    return ingest_text(text, name, kind, r2_key, file_hash)
 
 
 def list_docs() -> list[dict]:
     return sorted(_load_registry().values(), key=lambda d: d.get("added_at", 0), reverse=True)
+
+
+def find_doc_by_filehash(file_hash: str) -> dict | None:
+    """按文件字节指纹(= doc id)查"同一个文件"是否已入库。命中→返回注册项;否则 None。
+    上传判重:在抽取/转写之前就拦下完全相同的文件(尤其音视频,免去重复转写)。"""
+    if not file_hash:
+        return None
+    return _load_registry().get(file_hash)
 
 
 def get_doc_text(doc_id: str) -> str | None:
@@ -240,7 +240,7 @@ def delete_doc(doc_id: str) -> bool:
         if os.path.exists(tp):
             os.remove(tp)
     db.registry_delete(doc_id, _registry_path())   # 原子移除
-    # 从 MD5 台账移除(允许日后重新上传)
+    # 从内容哈希台账移除(允许日后重新上传)
     try:
         if os.path.exists(kb.ledger_path):
             kept = [ln for ln in read_text(kb.ledger_path).splitlines() if ln.strip() and ln.strip() != doc_id]

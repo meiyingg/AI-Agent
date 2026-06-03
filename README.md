@@ -105,7 +105,7 @@ flowchart TD
 
     subgraph CORE2 ["★ 高级 RAG 管道"]
         direction TB
-        I["①离线: 文件→MD5去重→切分→向量库"]
+        I["①离线: 文件→SHA-256去重→切分→向量库"]
         I --> H["②混合检索: BM25(0.3) + 向量(0.7)"]
         H --> R["③DashScope gte-rerank 重排 TopK"]
         R --> G["④LCEL 生成 (提示词约束防幻觉)"]
@@ -118,7 +118,7 @@ flowchart TD
 - **混合检索**：纯向量对"型号/金额/专有名词"等关键词召回不稳；BM25 补关键词、向量补语义，加权融合。
 - **重排**：对融合结果用 `gte-rerank` 二次精排取 TopK，降误召回。
 - **在线检索只查不存**：资讯讲新鲜度，存进向量库会过期，所以每次实时查、直接给模型。
-- **MD5 去重只用在内部文件**：同一份文档可能被重复导入，按内容 MD5 跳过；网络数据不适用。
+- **SHA-256 去重只用在内部文件**：同一份文档可能被重复导入，按文件字节 SHA-256(即 doc id)跳过；网络数据不适用。
 
 ---
 
@@ -137,7 +137,7 @@ meeting-insight-agent/
     ├── rag/
     │   ├── vector_store.py     # Chroma 向量库封装
     │   ├── retriever.py        # ★混合检索(BM25+向量) + DashScope 重排
-    │   └── meeting_kb.py       # 文档入库(MD5去重) + 高级检索 + LCEL 生成
+    │   └── meeting_kb.py       # 文档入库(SHA-256去重) + 高级检索 + LCEL 生成
     ├── agent/                  # 工具 / 中间件 / 子Agent / 投资建议
     ├── graph/supervisor.py     # 多 Agent 编排 (LangGraph)
     ├── memory/                 # 短期(会话) + 长期(企业档案) 记忆

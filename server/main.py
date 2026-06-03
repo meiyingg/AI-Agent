@@ -32,8 +32,10 @@ from src.memory.threads import list_threads, touch_thread
 from src.memory.reports import save_report, list_reports, get_report, delete_report
 from src.rag.kb_service import (
     kind_of, process_upload, list_docs, delete_doc, search_chunks, get_doc_text, get_original_url,
+    find_doc_by_filehash,
 )
 from src.utils import db
+from src.utils.files import sha256_of_file
 from src.utils.config import (
     abs_of, update_settings,
     model_conf, memory_conf, multiagent_conf, kb_conf,
@@ -185,12 +187,11 @@ def _r2_store(raw_path: str, raw_name: str) -> str:
         return ""
 
 
-def _kb_job(job_id: str, raw_path: str, name: str, r2_key: str = ""):
+def _kb_job(job_id: str, raw_path: str, name: str, r2_key: str = "", file_hash: str = ""):
     """后台任务：音视频转写 + 入库(慢)。"""
     try:
-        doc = process_upload(raw_path, name, r2_key)
-        dup = bool(doc.pop("duplicate", False))
-        KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "done", "doc": doc, "duplicate": dup}
+        doc = process_upload(raw_path, name, r2_key, file_hash)
+        KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "done", "doc": doc}
     except Exception as e:
         logger.exception(f"[KB] 后台处理失败 {name}")
         KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "error", "error": str(e)}
@@ -214,12 +215,19 @@ async def kb_upload(files: list[UploadFile] = File(...)):
         raw_path = os.path.join(up_dir, raw_name)
         with open(raw_path, "wb") as out:
             shutil.copyfileobj(f.file, out)        # 流式落盘, 大文件也不爆内存
+        # ① 文件字节指纹预检：完全相同的文件之前传过 → 当场跳过(不上传 R2、不抽取/转写)
+        file_hash = sha256_of_file(raw_path) or ""
+        dup_doc = find_doc_by_filehash(file_hash)
+        if dup_doc:
+            logger.info(f"[KB] 跳过重复(同一个文件已存在): {name}")
+            results.append({"name": name, "status": "done", "doc": dup_doc, "duplicate": True})
+            _discard(raw_path)
+            continue
         r2_key = _r2_store(raw_path, raw_name)     # 原件存 R2(可下载)
         if kind == "doc":
             try:
-                doc = process_upload(raw_path, name, r2_key)
-                dup = bool(doc.pop("duplicate", False))
-                results.append({"name": name, "status": "done", "doc": doc, "duplicate": dup})
+                doc = process_upload(raw_path, name, r2_key, file_hash)
+                results.append({"name": name, "status": "done", "doc": doc})
             except Exception as e:
                 logger.exception(f"[KB] 文档处理失败 {name}")
                 results.append({"name": name, "status": "error", "error": str(e)})
@@ -228,7 +236,7 @@ async def kb_upload(files: list[UploadFile] = File(...)):
         else:                                       # 音视频 → 后台转写
             job_id = uuid.uuid4().hex[:10]
             KB_JOBS[job_id] = {"id": job_id, "name": name, "kind": kind, "status": "processing"}
-            threading.Thread(target=_kb_job, args=(job_id, raw_path, name, r2_key), daemon=True).start()
+            threading.Thread(target=_kb_job, args=(job_id, raw_path, name, r2_key, file_hash), daemon=True).start()
             results.append({"name": name, "status": "processing", "job_id": job_id, "kind": kind})
     return {"results": results}
 
