@@ -17,19 +17,14 @@ def _path() -> str:
 
 def list_threads() -> list[dict]:
     """按更新时间倒序返回会话列表。"""
-    try:
-        with open(_path(), encoding="utf-8") as f:
-            data = json.load(f)
-        return sorted(data, key=lambda t: t.get("updated_at", 0), reverse=True)
-    except FileNotFoundError:
-        return []
-    except Exception as e:
-        logger.warning(f"[Threads] 读取失败: {e}")
-        return []
+    from src.utils import db
+    data = db.store_load("threads", _path(), [])
+    return sorted(data, key=lambda t: t.get("updated_at", 0), reverse=True)
 
 
 def touch_thread(thread_id: str, message: str) -> dict:
     """新建或更新会话。新会话用首条消息作标题。"""
+    from src.utils import db
     items = {t["id"]: t for t in list_threads()}
     now = time.time()
     if thread_id in items:
@@ -39,7 +34,5 @@ def touch_thread(thread_id: str, message: str) -> dict:
         if len(title) > 24:
             title = title[:24] + "…"
         items[thread_id] = {"id": thread_id, "title": title, "created_at": now, "updated_at": now}
-    os.makedirs(os.path.dirname(_path()), exist_ok=True)
-    with open(_path(), "w", encoding="utf-8") as f:
-        json.dump(list(items.values()), f, ensure_ascii=False, indent=2)
+    db.store_save("threads", _path(), list(items.values()))
     return items[thread_id]

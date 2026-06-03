@@ -171,6 +171,7 @@ export interface KbDoc {
   chunks: number;
   chars: number;
   added_at: number;
+  r2_key?: string;
 }
 
 export interface KbUploadResult {
@@ -213,6 +214,18 @@ export async function getKbDocText(id: string): Promise<string> {
     if (!r.ok) return "";
     const d = await r.json();
     return d.text || "";
+  } catch {
+    return "";
+  }
+}
+
+/** 原始文件的临时下载链接(存在 R2 才有)。 */
+export async function getKbDocOriginal(id: string): Promise<string> {
+  try {
+    const r = await apiFetch(`/api/kb/docs/${id}/original`);
+    if (!r.ok) return "";
+    const d = await r.json();
+    return d.url || "";
   } catch {
     return "";
   }

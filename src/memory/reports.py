@@ -13,17 +13,13 @@ def _path() -> str:
 
 
 def _load() -> dict:
-    try:
-        with open(_path(), encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    from src.utils import db
+    return db.store_load("reports", _path(), {})
 
 
 def _save(data: dict) -> None:
-    os.makedirs(os.path.dirname(_path()), exist_ok=True)
-    with open(_path(), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    from src.utils import db
+    db.store_save("reports", _path(), data)
 
 
 def save_report(thread_id: str, question: str, report: dict, findings: dict) -> dict:

@@ -30,7 +30,10 @@ from src.graph.supervisor import InvestmentAdvisor
 from src.memory.profile import load_profile, save_profile
 from src.memory.threads import list_threads, touch_thread
 from src.memory.reports import save_report, list_reports, get_report, delete_report
-from src.rag.kb_service import kind_of, process_upload, list_docs, delete_doc, search_chunks, get_doc_text
+from src.rag.kb_service import (
+    kind_of, process_upload, list_docs, delete_doc, search_chunks, get_doc_text, get_original_url,
+)
+from src.utils import db
 from src.utils.config import (
     abs_of, update_settings,
     model_conf, memory_conf, multiagent_conf, kb_conf,
@@ -169,10 +172,23 @@ def _discard(path: str) -> None:
         logger.warning(f"[KB] 清理原始上传失败: {path}")
 
 
-def _kb_job(job_id: str, raw_path: str, name: str):
+def _r2_store(raw_path: str, raw_name: str) -> str:
+    """把原始文件存到 R2(设了 R2 才存)。返回 r2_key 或空串。"""
+    if not db.USE_R2:
+        return ""
+    try:
+        with open(raw_path, "rb") as fh:
+            db.r2_put(f"original/{raw_name}", fh.read())
+        return f"original/{raw_name}"
+    except Exception as e:
+        logger.warning(f"[KB] R2 存原件失败 {raw_name}: {e}")
+        return ""
+
+
+def _kb_job(job_id: str, raw_path: str, name: str, r2_key: str = ""):
     """后台任务：音视频转写 + 入库(慢)。"""
     try:
-        doc = process_upload(raw_path, name)
+        doc = process_upload(raw_path, name, r2_key)
         KB_JOBS[job_id] = {**KB_JOBS[job_id], "status": "done", "doc": doc}
     except Exception as e:
         logger.exception(f"[KB] 后台处理失败 {name}")
@@ -193,12 +209,14 @@ async def kb_upload(files: list[UploadFile] = File(...)):
         if not kind:
             results.append({"name": name, "status": "error", "error": "Unsupported file type"})
             continue
-        raw_path = os.path.join(up_dir, f"{uuid.uuid4().hex[:8]}_{os.path.basename(name)}")
+        raw_name = f"{uuid.uuid4().hex[:8]}_{os.path.basename(name)}"
+        raw_path = os.path.join(up_dir, raw_name)
         with open(raw_path, "wb") as out:
             shutil.copyfileobj(f.file, out)        # 流式落盘, 大文件也不爆内存
+        r2_key = _r2_store(raw_path, raw_name)     # 原件存 R2(可下载)
         if kind == "doc":
             try:
-                doc = process_upload(raw_path, name)
+                doc = process_upload(raw_path, name, r2_key)
                 results.append({"name": name, "status": "done", "doc": doc})
             except Exception as e:
                 logger.exception(f"[KB] 文档处理失败 {name}")
@@ -208,7 +226,7 @@ async def kb_upload(files: list[UploadFile] = File(...)):
         else:                                       # 音视频 → 后台转写
             job_id = uuid.uuid4().hex[:10]
             KB_JOBS[job_id] = {"id": job_id, "name": name, "kind": kind, "status": "processing"}
-            threading.Thread(target=_kb_job, args=(job_id, raw_path, name), daemon=True).start()
+            threading.Thread(target=_kb_job, args=(job_id, raw_path, name, r2_key), daemon=True).start()
             results.append({"name": name, "status": "processing", "job_id": job_id, "kind": kind})
     return {"results": results}
 
@@ -227,6 +245,15 @@ def kb_list():
 def kb_doc_content(doc_id: str):
     """查看某份已入库资料的提取文本(AI 实际读到的内容)。"""
     return {"text": get_doc_text(doc_id) or ""}
+
+
+@app.get("/api/kb/docs/{doc_id}/original")
+def kb_doc_original(doc_id: str):
+    """原始文件的临时下载链接(存在 R2 才有)。"""
+    url = get_original_url(doc_id)
+    if not url:
+        return JSONResponse({"detail": "No original file"}, status_code=404)
+    return {"url": url}
 
 
 @app.delete("/api/kb/docs/{doc_id}")

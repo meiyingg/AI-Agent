@@ -32,15 +32,9 @@ def _path() -> str:
 
 def load_profile() -> dict:
     """读取全局档案; 不存在或损坏则返回空档案 (不崩)。"""
-    try:
-        with open(_path(), encoding="utf-8") as f:
-            data = json.load(f)
-        return {**_DEFAULT, **data}
-    except FileNotFoundError:
-        return dict(_DEFAULT)
-    except Exception as e:
-        logger.warning(f"[Profile] 读取失败, 用空档案: {e}")
-        return dict(_DEFAULT)
+    from src.utils import db
+    data = db.store_load("profile", _path(), None)
+    return {**_DEFAULT, **data} if isinstance(data, dict) else dict(_DEFAULT)
 
 
 def save_profile(data: dict) -> dict:
@@ -58,9 +52,8 @@ def save_profile(data: dict) -> dict:
                 seen.add(f)
                 uniq.append(f)
         cur["facts"] = uniq[:cap]
-    os.makedirs(os.path.dirname(_path()), exist_ok=True)
-    with open(_path(), "w", encoding="utf-8") as f:
-        json.dump(cur, f, ensure_ascii=False, indent=2)
+    from src.utils import db
+    db.store_save("profile", _path(), cur)
     logger.info(f"[Profile] 已更新全局档案 (facts={len(cur.get('facts', []))})")
     return cur
 

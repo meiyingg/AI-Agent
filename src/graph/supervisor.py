@@ -194,7 +194,15 @@ def advisor_node(state: InvestState) -> dict:
 
 
 def _make_checkpointer():
-    """短期记忆：优先 SqliteSaver(持久, 跨重启); 失败降级 MemorySaver(进程内)。"""
+    """短期记忆：DATABASE_URL 设了 → Neon PostgresSaver(永久, 跨重启/多实例)；
+    否则本地 SqliteSaver；都不行降级 MemorySaver(进程内)。"""
+    try:
+        from src.utils.db import make_checkpointer as _pg_cp
+        cp = _pg_cp()
+        if cp is not None:
+            return cp
+    except Exception as e:
+        logger.warning(f"[Memory] Postgres checkpointer 不可用, 降级本地: {e}")
     try:
         from langgraph.checkpoint.sqlite import SqliteSaver
         path = abs_of("memory_db")

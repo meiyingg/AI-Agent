@@ -33,3 +33,13 @@ pypdf>=4.0.0
 python-docx>=1.1.0
 openpyxl>=3.1.0          # 读取 .xlsx 表格(公司合同/台账)
 python-multipart>=0.0.9
+
+# 永久存储 (可选, 设了 DATABASE_URL / R2_* 才启用; 不设则回退本地文件)
+# Neon Postgres: 对话历史(PostgresSaver) / 向量(pgvector) / kv 数据
+psycopg[binary]>=3.1
+psycopg-pool>=3.2
+sqlalchemy>=2.0
+langgraph-checkpoint-postgres>=2.0
+langchain-postgres>=0.0.12
+# Cloudflare R2 (S3 兼容): 原始文件
+boto3>=1.34

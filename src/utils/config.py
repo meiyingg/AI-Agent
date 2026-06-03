@@ -52,8 +52,8 @@ _WRITABLE = {"memory": memory_conf}
 
 def _load_override() -> dict:
     try:
-        with open(_OVERRIDE_PATH, encoding="utf-8") as f:
-            return json.load(f)
+        from src.utils import db
+        return db.store_load("settings_override", _OVERRIDE_PATH, {})
     except Exception:
         return {}
 
@@ -72,9 +72,8 @@ def update_settings(section: str, patch: dict) -> dict:
     conf.update(patch)
     ov = _load_override()
     ov.setdefault(section, {}).update(patch)
-    os.makedirs(os.path.dirname(_OVERRIDE_PATH), exist_ok=True)
-    with open(_OVERRIDE_PATH, "w", encoding="utf-8") as f:
-        json.dump(ov, f, ensure_ascii=False, indent=2)
+    from src.utils import db
+    db.store_save("settings_override", _OVERRIDE_PATH, ov)
     return conf
 
 

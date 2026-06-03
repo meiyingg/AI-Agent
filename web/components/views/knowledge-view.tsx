@@ -13,6 +13,7 @@ import {
   Search,
   Eye,
   X,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import {
   getKbJob,
   searchKb,
   getKbDocText,
+  getKbDocOriginal,
   type KbDoc,
   type KbChunk,
 } from "@/lib/api";
@@ -59,6 +61,12 @@ export function KnowledgeView() {
     setViewing({ doc: d, text: "", loading: true });
     const text = await getKbDocText(d.id);
     setViewing({ doc: d, text, loading: false });
+  }
+
+  async function downloadDoc(d: KbDoc) {
+    const url = await getKbDocOriginal(d.id);
+    if (url) window.open(url, "_blank");
+    else toast.error("Original file not available");
   }
 
   async function onSearch() {
@@ -308,6 +316,15 @@ export function KnowledgeView() {
                         >
                           <Eye className="size-4" />
                         </button>
+                        {d.r2_key && (
+                          <button
+                            onClick={() => downloadDoc(d)}
+                            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                            title="Download original"
+                          >
+                            <Download className="size-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => confirmDelete(d)}
                           className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

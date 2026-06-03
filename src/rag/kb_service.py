@@ -42,17 +42,13 @@ def _registry_path() -> str:
 
 
 def _load_registry() -> dict:
-    try:
-        with open(_registry_path(), encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    from src.utils import db
+    return db.store_load("kb_registry", _registry_path(), {})
 
 
 def _save_registry(reg: dict) -> None:
-    os.makedirs(_kb_dir(), exist_ok=True)
-    with open(_registry_path(), "w", encoding="utf-8") as f:
-        json.dump(reg, f, ensure_ascii=False, indent=2)
+    from src.utils import db
+    db.store_save("kb_registry", _registry_path(), reg)
 
 
 def _shared_kb():
@@ -139,29 +135,34 @@ def transcribe(src_path: str) -> str:
 
 # ---------------- 入库 / 列表 / 删除 ----------------
 
-def ingest_text(text: str, name: str, kind: str) -> dict:
+def ingest_text(text: str, name: str, kind: str, r2_key: str = "") -> dict:
+    from src.utils import db
     text = (text or "").strip()
     if not text:
         raise ValueError("No text content extracted")
     doc_id = md5_of_text(text)
     kb = _shared_kb()
     chunks = kb.store.add_document(text, doc_id=doc_id, metadata={"source": name, "kind": kind})
-    os.makedirs(_kb_dir(), exist_ok=True)
-    text_file = f"{_safe_stem(name)}__{doc_id[:8]}.txt"
-    with open(os.path.join(_kb_dir(), text_file), "w", encoding="utf-8") as f:
-        f.write(text)                       # 持久 + 供 BM25(load_chunks 会扫 kb_dir)
-    kb._mark(doc_id)                         # MD5 台账
+    text_file = ""
+    if db.USE_DB:
+        db.kv_set(f"kb_text:{doc_id}", text)        # 文本存 kv(供 BM25 / 查看),不落本地文件
+    else:
+        os.makedirs(_kb_dir(), exist_ok=True)
+        text_file = f"{_safe_stem(name)}__{doc_id[:8]}.txt"
+        with open(os.path.join(_kb_dir(), text_file), "w", encoding="utf-8") as f:
+            f.write(text)                   # 持久 + 供 BM25(load_chunks 会扫 kb_dir)
+    kb._mark(doc_id)                         # MD5 台账(本地, 无害)
     kb._retriever = None                     # 失效检索器缓存
     reg = _load_registry()
     reg[doc_id] = {"id": doc_id, "name": name, "kind": kind, "chars": len(text),
-                   "chunks": chunks, "added_at": time.time(), "text_file": text_file}
+                   "chunks": chunks, "added_at": time.time(), "text_file": text_file, "r2_key": r2_key}
     _save_registry(reg)
     logger.info(f"[KB] 入库 {name} ({kind}) -> {chunks} 分块")
     return reg[doc_id]
 
 
-def process_upload(raw_path: str, name: str) -> dict:
-    """根据类型抽取/转写 → 入库。返回该文档的注册信息。"""
+def process_upload(raw_path: str, name: str, r2_key: str = "") -> dict:
+    """根据类型抽取/转写 → 入库。r2_key: 原始文件在 R2 的 key(可空)。返回注册信息。"""
     ext = os.path.splitext(name)[1].lower()
     kind = kind_of(name)
     if kind == "doc":
@@ -170,7 +171,7 @@ def process_upload(raw_path: str, name: str) -> dict:
         text = transcribe(raw_path)
     else:
         raise ValueError(f"Unsupported file type: {ext}")
-    return ingest_text(text, name, kind)
+    return ingest_text(text, name, kind, r2_key)
 
 
 def list_docs() -> list[dict]:
@@ -179,11 +180,25 @@ def list_docs() -> list[dict]:
 
 def get_doc_text(doc_id: str) -> str | None:
     """读取某份资料提取后的文本(AI 实际检索所依据的内容)，供前端"查看"。"""
+    from src.utils import db
     info = _load_registry().get(doc_id)
-    if not info or not info.get("text_file"):
+    if not info:
+        return None
+    if db.USE_DB:
+        return db.kv_get(f"kb_text:{doc_id}", None)
+    if not info.get("text_file"):
         return None
     path = os.path.join(_kb_dir(), info["text_file"])
     return read_text(path) if os.path.exists(path) else None
+
+
+def get_original_url(doc_id: str) -> str | None:
+    """原始文件的临时下载链接(存在 R2 才有)。"""
+    from src.utils import db
+    info = _load_registry().get(doc_id)
+    if not info or not info.get("r2_key") or not db.USE_R2:
+        return None
+    return db.r2_presigned_url(info["r2_key"])
 
 
 def search_chunks(query: str, k: int = 6) -> list[dict]:
@@ -204,11 +219,16 @@ def search_chunks(query: str, k: int = 6) -> list[dict]:
 
 
 def delete_doc(doc_id: str) -> bool:
+    from src.utils import db
     kb = _shared_kb()
-    kb.store.delete_document(doc_id)
+    kb.store.delete_document(doc_id)             # 删向量分块
     reg = _load_registry()
     info = reg.pop(doc_id, None)
-    if info and info.get("text_file"):
+    if db.USE_DB:
+        db.kv_delete(f"kb_text:{doc_id}")        # 删文本
+        if info and info.get("r2_key"):
+            db.r2_delete(info["r2_key"])         # 删 R2 原件
+    elif info and info.get("text_file"):
         tp = os.path.join(_kb_dir(), info["text_file"])
         if os.path.exists(tp):
             os.remove(tp)

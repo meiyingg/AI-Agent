@@ -63,10 +63,18 @@ class MeetingKB:
 
     # ---------- 构建检索器 (BM25 需要全部分块在内存) ----------
     def load_chunks(self) -> list[Document]:
+        from src.utils import db
         docs = []
-        for fp in self._corpus_files():
-            docs.append(Document(page_content=read_text(fp),
-                                 metadata={"source": os.path.basename(fp)}))
+        if db.USE_DB:
+            from src.rag.kb_service import _load_registry
+            for d in _load_registry().values():
+                txt = db.kv_get(f"kb_text:{d['id']}", "")
+                if txt:
+                    docs.append(Document(page_content=txt, metadata={"source": d.get("name", "")}))
+        else:
+            for fp in self._corpus_files():
+                docs.append(Document(page_content=read_text(fp),
+                                     metadata={"source": os.path.basename(fp)}))
         return self.store.splitter.split_documents(docs)
 
     def retriever(self) -> AdvancedRetriever:
