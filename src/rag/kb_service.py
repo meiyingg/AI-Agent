@@ -141,6 +141,10 @@ def ingest_text(text: str, name: str, kind: str, r2_key: str = "") -> dict:
     if not text:
         raise ValueError("No text content extracted")
     doc_id = md5_of_text(text)
+    existing = _load_registry().get(doc_id)
+    if existing:                              # 同内容已入库 → 跳过,不重复嵌入(去重 + 提速)
+        logger.info(f"[KB] 跳过重复(同内容已存在): {name}")
+        return existing
     kb = _shared_kb()
     chunks = kb.store.add_document(text, doc_id=doc_id, metadata={"source": name, "kind": kind})
     text_file = ""
@@ -170,7 +174,12 @@ def process_upload(raw_path: str, name: str, r2_key: str = "") -> dict:
         text = transcribe(raw_path)
     else:
         raise ValueError(f"Unsupported file type: {ext}")
-    return ingest_text(text, name, kind, r2_key)
+    doc = ingest_text(text, name, kind, r2_key)
+    if r2_key and doc.get("r2_key") != r2_key:   # 命中去重 → 删掉本次多传到 R2 的原件,避免孤儿
+        from src.utils import db
+        if db.USE_R2:
+            db.r2_delete(r2_key)
+    return doc
 
 
 def list_docs() -> list[dict]:

@@ -42,8 +42,8 @@ class VectorStore:
         logger.info(f"[VectorStore:{collection_name}] backend = {self.backend}")
 
     def add_document(self, text: str, doc_id: str, metadata: dict = None) -> int:
-        """切分一段文本并写入；用 doc_id 作为稳定 id 前缀。
-        先删旧分块再写,保证同一 doc_id 重复上传时不残留旧分块(天然去重)。"""
+        """切分一段文本并写入；用 doc_id-i 作为稳定 id。
+        ids 稳定 → 同 doc_id 重复写会按 id upsert 覆盖(去重逻辑在 kb_service 层提前拦截)。"""
         if not text.strip():
             return 0
         doc = Document(page_content=text, metadata={**(metadata or {}), "doc_id": doc_id})
@@ -51,7 +51,6 @@ class VectorStore:
         if not chunks:
             return 0
         ids = [f"{doc_id}-{i}" for i in range(len(chunks))]
-        self.delete_document(doc_id)
         self.vs.add_documents(chunks, ids=ids)
         return len(chunks)
 
