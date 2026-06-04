@@ -42,6 +42,7 @@ const NAV = [
 export default function Home() {
   const [view, setView] = useState<string>("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showWork, setShowWork] = useState(true);
   const [online, setOnline] = useState<boolean | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -74,20 +75,27 @@ export default function Home() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex h-14 shrink-0 items-center justify-between border-b px-3">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            onClick={() => setMobileNavOpen((v) => !v)}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
+            title="Menu"
+          >
+            <PanelLeft className="size-4" />
+          </button>
           <button
             onClick={() => setNavCollapsed((v) => !v)}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground md:block"
             title="Collapse / expand menu"
           >
             <PanelLeft className="size-4" />
           </button>
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Brain className="size-4" />
             </div>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">Chamber Investment Advisor</div>
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-sm font-semibold">Chamber Investment Advisor</div>
               <div className="hidden text-[11px] text-muted-foreground sm:block">Multi-Agent · Advanced RAG · Long-term Memory</div>
             </div>
           </div>
@@ -105,7 +113,7 @@ export default function Home() {
             <button
               onClick={() => setShowWork((v) => !v)}
               className={cn(
-                "rounded-md p-1.5 hover:bg-accent",
+                "hidden rounded-md p-1.5 hover:bg-accent lg:block",
                 showWork ? "text-primary" : "text-muted-foreground hover:text-foreground",
               )}
               title={showWork ? "Hide Agent worktable" : "Show Agent worktable"}
@@ -135,25 +143,40 @@ export default function Home() {
       </header>
 
       <div className="flex min-h-0 flex-1">
+        {/* mobile drawer backdrop */}
+        {mobileNavOpen && (
+          <div
+            className="fixed inset-x-0 bottom-0 top-14 z-30 bg-black/40 md:hidden"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
         <nav
           className={cn(
-            "flex shrink-0 flex-col gap-0.5 border-r p-2 transition-all",
-            navCollapsed ? "w-[52px]" : "w-[168px]",
+            "flex shrink-0 flex-col gap-0.5 border-r bg-background p-2",
+            // mobile: off-canvas drawer under the header
+            "fixed bottom-0 left-0 top-14 z-40 w-60 transition-transform",
+            mobileNavOpen ? "translate-x-0" : "-translate-x-full",
+            // md+: back in normal flow; width collapses
+            "md:static md:top-auto md:z-auto md:w-[168px] md:translate-x-0 md:transition-all",
+            navCollapsed && "md:w-[52px]",
           )}
         >
           {NAV.map(({ id, label, Icon }) => (
             <button
               key={id}
-              onClick={() => setView(id)}
+              onClick={() => {
+                setView(id);
+                setMobileNavOpen(false); // 点功能项后自动收起手机抽屉
+              }}
               title={navCollapsed ? label : undefined}
               className={cn(
-                "flex items-center gap-2.5 rounded-lg py-2 text-sm transition-colors",
-                navCollapsed ? "justify-center px-0" : "px-3",
+                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                navCollapsed && "md:justify-center md:px-0",
                 view === id ? "bg-primary/10 font-medium text-primary" : "text-foreground/70 hover:bg-accent",
               )}
             >
               <Icon className="size-4 shrink-0" />
-              {!navCollapsed && label}
+              <span className={cn(navCollapsed && "md:hidden")}>{label}</span>
             </button>
           ))}
         </nav>

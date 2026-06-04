@@ -207,11 +207,11 @@ export function ChatView({ showWorktable = true }: { showWorktable?: boolean }) 
       <aside className="hidden w-[210px] shrink-0 flex-col border-r lg:flex">
         <Sessions threads={threads} activeId={activeThread} loading={loading} onSelect={selectThread} onNew={newChat} />
       </aside>
-      <div className={cn("flex min-h-0 flex-col", showWorktable ? "w-[40%] min-w-[300px] border-r" : "flex-1")}>
+      <div className={cn("flex min-h-0 flex-col", showWorktable ? "flex-1 lg:w-[40%] lg:min-w-[300px] lg:flex-none lg:border-r" : "flex-1")}>
         <ChatPanel messages={messages} loading={loading} onSend={handleSend} />
       </div>
       {showWorktable && (
-        <div className="min-h-0 flex-1">
+        <div className="hidden min-h-0 flex-1 lg:block">
           <Worktable run={run} question={lastQuestion} />
         </div>
       )}
