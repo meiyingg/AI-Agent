@@ -12,12 +12,13 @@ const EMPTY_RUN: RunState = { mode: undefined, items: [], report: null, active: 
 let _c = 0;
 const uid = () => `${Date.now()}-${_c++}`;
 
-export function ChatView({ showWorktable = true }: { showWorktable?: boolean }) {
+export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: boolean; onNewChat?: () => void }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [run, setRun] = useState<RunState>(EMPTY_RUN);
   const [loading, setLoading] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThread, setActiveThread] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<"chat" | "work">("chat"); // 手机: 聊天 / 工作台 切换
   const threadRef = useRef<string | null>(null);
   const streamIdRef = useRef<string | null>(null);
 
@@ -198,23 +199,59 @@ export function ChatView({ showWorktable = true }: { showWorktable?: boolean }) 
     setActiveThread(null);
     setMessages([]);
     setRun(EMPTY_RUN);
+    setMobileTab("chat");
+    onNewChat?.(); // 桌面端: 顺便收起左侧导航栏
   }
 
   const lastQuestion = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
   return (
-    <div className="flex h-full min-h-0">
-      <aside className="hidden w-[210px] shrink-0 flex-col border-r lg:flex">
-        <Sessions threads={threads} activeId={activeThread} loading={loading} onSelect={selectThread} onNew={newChat} />
-      </aside>
-      <div className={cn("flex min-h-0 flex-col", showWorktable ? "flex-1 lg:w-[40%] lg:min-w-[300px] lg:flex-none lg:border-r" : "flex-1")}>
-        <ChatPanel messages={messages} loading={loading} onSend={handleSend} />
+    <div className="flex h-full min-h-0 flex-col">
+      {/* 手机: 聊天 / Agent 工作台 切换 (大屏两栏并排, 隐藏此切换) */}
+      <div className="flex shrink-0 items-center gap-1 border-b p-1.5 lg:hidden">
+        <button
+          onClick={() => setMobileTab("chat")}
+          className={cn(
+            "flex-1 rounded-md py-1.5 text-sm font-medium transition-colors",
+            mobileTab === "chat" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent",
+          )}
+        >
+          Chat
+        </button>
+        <button
+          onClick={() => setMobileTab("work")}
+          className={cn(
+            "flex-1 rounded-md py-1.5 text-sm font-medium transition-colors",
+            mobileTab === "work" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent",
+          )}
+        >
+          Agent worktable
+        </button>
       </div>
-      {showWorktable && (
-        <div className="hidden min-h-0 flex-1 lg:block">
+
+      <div className="flex min-h-0 flex-1">
+        <aside className="hidden w-[210px] shrink-0 flex-col border-r lg:flex">
+          <Sessions threads={threads} activeId={activeThread} loading={loading} onSelect={selectThread} onNew={newChat} />
+        </aside>
+        <div
+          className={cn(
+            "min-h-0 flex-col lg:flex",
+            mobileTab === "chat" ? "flex flex-1" : "hidden",
+            showWorktable ? "lg:w-[40%] lg:min-w-[300px] lg:flex-none lg:border-r" : "lg:flex-1",
+          )}
+        >
+          <ChatPanel messages={messages} loading={loading} onSend={handleSend} />
+        </div>
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            mobileTab === "work" ? "block" : "hidden",
+            showWorktable ? "lg:block" : "lg:hidden",
+          )}
+        >
           <Worktable run={run} question={lastQuestion} />
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -269,15 +269,15 @@ export function KnowledgeView() {
       </div>
 
       {/* 文件表格 */}
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left font-medium">File</th>
-              <th className="px-3 py-2 text-left font-medium">Type</th>
-              <th className="px-3 py-2 text-right font-medium">Chars</th>
-              <th className="px-3 py-2 text-right font-medium">Chunks</th>
-              <th className="px-3 py-2 text-right font-medium">Added</th>
+              <th className="hidden px-3 py-2 text-left font-medium sm:table-cell">Type</th>
+              <th className="hidden px-3 py-2 text-right font-medium md:table-cell">Chars</th>
+              <th className="hidden px-3 py-2 text-right font-medium md:table-cell">Chunks</th>
+              <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Added</th>
               <th className="w-16 px-3 py-2"></th>
             </tr>
           </thead>
@@ -309,10 +309,10 @@ export function KnowledgeView() {
                         <span className="truncate hover:underline">{d.name}</span>
                       </button>
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{KIND_LABEL[d.kind] ?? d.kind}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{d.chars}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{d.chunks}</td>
-                    <td className="px-3 py-2 text-right text-xs text-muted-foreground">{relativeTime(d.added_at)}</td>
+                    <td className="hidden px-3 py-2 text-muted-foreground sm:table-cell">{KIND_LABEL[d.kind] ?? d.kind}</td>
+                    <td className="hidden px-3 py-2 text-right tabular-nums md:table-cell">{d.chars}</td>
+                    <td className="hidden px-3 py-2 text-right tabular-nums md:table-cell">{d.chunks}</td>
+                    <td className="hidden px-3 py-2 text-right text-xs text-muted-foreground sm:table-cell">{relativeTime(d.added_at)}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-end gap-0.5">
                         <button

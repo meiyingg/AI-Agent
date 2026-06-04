@@ -183,7 +183,7 @@ export default function Home() {
 
         <main className="min-w-0 flex-1">
           <div className={cn("h-full", view === "chat" ? "block" : "hidden")}>
-            <ChatView showWorktable={showWork} />
+            <ChatView showWorktable={showWork} onNewChat={() => setNavCollapsed(true)} />
           </div>
           {view === "overview" && <OverviewView onNavigate={setView} />}
           {view === "reports" && <ReportsView />}
