@@ -52,8 +52,8 @@ def get_engine():
                 from sqlalchemy import create_engine
                 _engine = create_engine(
                     _sa_url(),
-                    pool_pre_ping=True,        # Neon 空闲会休眠,断连自动重建
-                    pool_recycle=300,
+                    pool_pre_ping=True,        # 取连接前 ping 一次,Neon 断了空闲连接也自动重建
+                    pool_recycle=180,          # 连接超 180s 就回收(早于 Neon 闲置断连)
                     connect_args={"prepare_threshold": None},  # 兼容 Neon pooler(PgBouncer)
                 )
     return _engine
@@ -167,12 +167,16 @@ def make_checkpointer():
     from psycopg.rows import dict_row
     from langgraph.checkpoint.postgres import PostgresSaver
     pool = ConnectionPool(
-        conninfo=DATABASE_URL, max_size=10, open=True,
+        conninfo=DATABASE_URL,
+        min_size=1, max_size=10, open=True,
+        check=ConnectionPool.check_connection,   # 取连接前先验活: Neon 掐掉空闲连接也能自动重连
+        max_idle=120,                            # 空闲超 120s 主动回收(早于 Neon 闲置断连)
+        max_lifetime=600,                        # 连接最长用 10 分钟即换新, 防陈旧
         kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
     )
     cp = PostgresSaver(pool)
     cp.setup()
-    logger.info("[db] checkpointer = PostgresSaver (Neon)")
+    logger.info("[db] checkpointer = PostgresSaver (Neon, self-healing pool)")
     return cp
 
 
