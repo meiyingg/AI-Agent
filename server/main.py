@@ -107,6 +107,8 @@ def chat(req: ChatReq):
     touch_thread(tid, req.message)               # 登记/更新会话注册表
 
     def gen():
+        from src.utils.usage import set_thread
+        set_thread(tid)                          # 本次会话 id → 成本/工具记录按会话归属
         yield _sse({"type": "thread", "thread_id": tid})
         try:
             for ev in advisor.execute_events(req.message, thread_id=tid):
@@ -348,6 +350,34 @@ def api_usage():
     from src.utils import pricing
     return {**usage_totals(), "endpoint": "intl (Singapore)",
             "prices_per_million_yuan": pricing.PRICING}
+
+
+@app.get("/api/admin/usage/summary")
+def admin_usage_summary():
+    """总计 + 今日 + 按模型拆分(持久化, 来自 usage_log)。"""
+    from src.utils import db
+    return db.usage_summary()
+
+
+@app.get("/api/admin/usage/timeseries")
+def admin_usage_timeseries(days: int = 14):
+    """近 N 天每天的成本 / tokens / 调用数。"""
+    from src.utils import db
+    return {"series": db.usage_timeseries(days)}
+
+
+@app.get("/api/admin/usage/recent")
+def admin_usage_recent(limit: int = 50):
+    """最近 N 次调用流水。"""
+    from src.utils import db
+    return {"rows": db.usage_recent(limit)}
+
+
+@app.get("/api/admin/usage/tools")
+def admin_usage_tools():
+    """Agent / 工具调用统计。"""
+    from src.utils import db
+    return db.tool_stats()
 
 
 # 启动时打印可观测/计费状态

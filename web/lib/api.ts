@@ -309,6 +309,30 @@ export async function health(): Promise<boolean> {
   }
 }
 
+// ===== 运营监控 (admin) =====
+export interface UsageModelRow { model: string; calls: number; in_tokens: number; out_tokens: number; yuan: number }
+export interface UsageSummary {
+  total: { calls: number; in_tokens: number; out_tokens: number; yuan: number };
+  today: { calls: number; yuan: number };
+  by_model: UsageModelRow[];
+}
+export interface UsageRecentRow { ts: string; model: string; kind: string; in_tokens: number; out_tokens: number; cost_yuan: number; thread_id: string | null }
+export interface UsagePoint { d: string; yuan: number; tokens: number; calls: number }
+export interface ToolStats { by_agent: { agent: string; n: number }[]; by_tool: { tool: string; n: number }[] }
+
+export async function getUsageSummary(): Promise<UsageSummary | null> {
+  try { const r = await apiFetch(`/api/admin/usage/summary`); if (!r.ok) return null; return r.json(); } catch { return null; }
+}
+export async function getUsageTimeseries(days = 14): Promise<UsagePoint[]> {
+  try { const r = await apiFetch(`/api/admin/usage/timeseries?days=${days}`); const d = await r.json(); return d.series || []; } catch { return []; }
+}
+export async function getUsageRecent(limit = 50): Promise<UsageRecentRow[]> {
+  try { const r = await apiFetch(`/api/admin/usage/recent?limit=${limit}`); const d = await r.json(); return d.rows || []; } catch { return []; }
+}
+export async function getUsageTools(): Promise<ToolStats> {
+  try { const r = await apiFetch(`/api/admin/usage/tools`); return r.json(); } catch { return { by_agent: [], by_tool: [] }; }
+}
+
 // 决策记录(历史投资报告)
 export interface ReportSummary {
   id: string;

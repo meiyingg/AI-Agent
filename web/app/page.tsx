@@ -15,6 +15,7 @@ import {
   PanelRight,
   FileText,
   Search,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatView } from "@/components/views/chat-view";
@@ -23,6 +24,7 @@ import { KnowledgeView } from "@/components/views/knowledge-view";
 import { ProfileView } from "@/components/views/profile-view";
 import { SettingsView } from "@/components/views/settings-view";
 import { ReportsView } from "@/components/views/reports-view";
+import { MonitoringView } from "@/components/views/monitoring-view";
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationBell } from "@/components/notification-bell";
 import { UserMenu } from "@/components/user-menu";
@@ -36,6 +38,7 @@ const NAV = [
   { id: "reports", label: "Decisions", Icon: FileText },
   { id: "knowledge", label: "Knowledge", Icon: Database },
   { id: "profile", label: "Profile", Icon: Building2 },
+  { id: "monitoring", label: "Monitoring", Icon: Activity },
   { id: "settings", label: "Settings", Icon: Settings },
 ] as const;
 
@@ -189,6 +192,7 @@ export default function Home() {
           {view === "reports" && <ReportsView />}
           {view === "knowledge" && <KnowledgeView />}
           {view === "profile" && <ProfileView />}
+          {view === "monitoring" && <MonitoringView />}
           {view === "settings" && <SettingsView />}
         </main>
       </div>

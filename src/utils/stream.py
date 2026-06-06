@@ -7,6 +7,12 @@ stream_mode=["updates","custom"] 的 "custom" 通道实时流出；
 
 
 def emit_event(event: dict) -> None:
+    if isinstance(event, dict) and event.get("type") == "tool":   # 工具调用 → 落 tool_log(运营监控)
+        try:
+            from src.utils.usage import log_tool
+            log_tool(event.get("agent", ""), event.get("tool", ""))
+        except Exception:
+            pass
     try:
         from langgraph.config import get_stream_writer
         get_stream_writer()(event)

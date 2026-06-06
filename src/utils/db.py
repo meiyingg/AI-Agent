@@ -70,8 +70,16 @@ def ready():
                 with eng.begin() as conn:
                     conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
                     conn.execute(text("CREATE TABLE IF NOT EXISTS kv_store (key text PRIMARY KEY, value jsonb NOT NULL)"))
+                    # 运营监控:每次 LLM/embedding 调用一行 + 每次工具调用一行
+                    conn.execute(text(
+                        "CREATE TABLE IF NOT EXISTS usage_log (id bigserial PRIMARY KEY, ts timestamptz NOT NULL DEFAULT now(),"
+                        " model text, kind text, in_tokens int DEFAULT 0, out_tokens int DEFAULT 0,"
+                        " cost_yuan double precision DEFAULT 0, thread_id text)"))
+                    conn.execute(text(
+                        "CREATE TABLE IF NOT EXISTS tool_log (id bigserial PRIMARY KEY, ts timestamptz NOT NULL DEFAULT now(),"
+                        " agent text, tool text, thread_id text)"))
                 _inited = True
-                logger.info("[db] Postgres ready (kv_store + pgvector)")
+                logger.info("[db] Postgres ready (kv_store + pgvector + usage_log + tool_log)")
     return eng
 
 
@@ -210,3 +218,78 @@ def r2_delete(key: str) -> None:
         r2_client().delete_object(Bucket=R2_BUCKET, Key=key)
     except Exception as e:
         logger.warning(f"[db] R2 delete failed {key}: {e}")
+
+
+# ---------------- 运营监控:用量 / 工具调用 ----------------
+
+def usage_insert(model, kind, in_tokens, out_tokens, cost_yuan, thread_id=None) -> None:
+    if not USE_DB:
+        return
+    from sqlalchemy import text
+    with ready().begin() as c:
+        c.execute(text("INSERT INTO usage_log(model,kind,in_tokens,out_tokens,cost_yuan,thread_id)"
+                       " VALUES(:m,:k,:i,:o,:c,:t)"),
+                  {"m": model, "k": kind, "i": int(in_tokens), "o": int(out_tokens),
+                   "c": float(cost_yuan or 0), "t": thread_id})
+
+
+def tool_insert(agent, tool, thread_id=None) -> None:
+    if not USE_DB:
+        return
+    from sqlalchemy import text
+    with ready().begin() as c:
+        c.execute(text("INSERT INTO tool_log(agent,tool,thread_id) VALUES(:a,:t,:th)"),
+                  {"a": agent, "t": tool, "th": thread_id})
+
+
+def usage_summary() -> dict:
+    """总计 + 今日 + 按模型拆分。"""
+    if not USE_DB:
+        return {}
+    from sqlalchemy import text
+    with ready().connect() as c:
+        tot = c.execute(text(
+            "SELECT count(*) calls, coalesce(sum(in_tokens),0) in_tokens, coalesce(sum(out_tokens),0) out_tokens,"
+            " coalesce(sum(cost_yuan),0) yuan FROM usage_log")).mappings().first()
+        today = c.execute(text(
+            "SELECT count(*) calls, coalesce(sum(cost_yuan),0) yuan FROM usage_log"
+            " WHERE ts >= date_trunc('day', now())")).mappings().first()
+        by_model = c.execute(text(
+            "SELECT model, count(*) calls, coalesce(sum(in_tokens),0) in_tokens,"
+            " coalesce(sum(out_tokens),0) out_tokens, coalesce(sum(cost_yuan),0) yuan"
+            " FROM usage_log GROUP BY model ORDER BY yuan DESC")).mappings().all()
+    return {"total": dict(tot), "today": dict(today), "by_model": [dict(r) for r in by_model]}
+
+
+def usage_timeseries(days: int = 14) -> list:
+    if not USE_DB:
+        return []
+    from sqlalchemy import text
+    with ready().connect() as c:
+        rows = c.execute(text(
+            "SELECT to_char(date_trunc('day', ts),'MM-DD') d, coalesce(sum(cost_yuan),0) yuan,"
+            " coalesce(sum(in_tokens+out_tokens),0) tokens, count(*) calls FROM usage_log"
+            " WHERE ts >= now() - make_interval(days => :d) GROUP BY 1 ORDER BY 1"),
+            {"d": int(days)}).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def usage_recent(limit: int = 50) -> list:
+    if not USE_DB:
+        return []
+    from sqlalchemy import text
+    with ready().connect() as c:
+        rows = c.execute(text(
+            "SELECT to_char(ts,'MM-DD HH24:MI:SS') ts, model, kind, in_tokens, out_tokens, cost_yuan, thread_id"
+            " FROM usage_log ORDER BY id DESC LIMIT :l"), {"l": int(limit)}).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def tool_stats() -> dict:
+    if not USE_DB:
+        return {"by_agent": [], "by_tool": []}
+    from sqlalchemy import text
+    with ready().connect() as c:
+        by_agent = c.execute(text("SELECT agent, count(*) n FROM tool_log GROUP BY agent ORDER BY n DESC")).mappings().all()
+        by_tool = c.execute(text("SELECT tool, count(*) n FROM tool_log GROUP BY tool ORDER BY n DESC")).mappings().all()
+    return {"by_agent": [dict(r) for r in by_agent], "by_tool": [dict(r) for r in by_tool]}
