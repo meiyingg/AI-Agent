@@ -10,6 +10,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain_community.embeddings import DashScopeEmbeddings
 from src.utils.config import model_conf
+from src.utils.usage import CostCallbackHandler
 
 
 class BaseModelFactory(ABC):
@@ -22,7 +23,8 @@ class ChatModelFactory(BaseModelFactory):
     def generator(self) -> BaseChatModel:
         # streaming=True：让 .stream(stream_mode="messages") 真正逐 token 吐字(打字机)；
         # 对 .invoke() 无副作用(仍返回完整消息)。
-        return ChatTongyi(model=model_conf["chat_model_name"], streaming=True)
+        return ChatTongyi(model=model_conf["chat_model_name"], streaming=True,
+                          callbacks=[CostCallbackHandler(default_model=model_conf["chat_model_name"])])
 
 
 class ReasoningModelFactory(BaseModelFactory):
@@ -31,7 +33,8 @@ class ReasoningModelFactory(BaseModelFactory):
     给"要展示思考过程"的 Agent 用；比 qwen-max 慢，但能看到模型真正的推理。
     """
     def generator(self) -> BaseChatModel:
-        return ChatTongyi(model=model_conf["reasoning_model_name"], streaming=True)
+        return ChatTongyi(model=model_conf["reasoning_model_name"], streaming=True,
+                          callbacks=[CostCallbackHandler(default_model=model_conf["reasoning_model_name"])])
 
 
 class EmbeddingsFactory(BaseModelFactory):

@@ -28,3 +28,10 @@ services:
         sync: false
       - key: R2_BUCKET
         sync: false
+      # ---- 可观测性 (LangSmith) + 计费区域 ----
+      - key: LANGSMITH_TRACING        # 填了 Key 后设为 true 才追踪
+        sync: false
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_PROJECT
+        value: meeting-insight-agent

@@ -341,6 +341,22 @@ def health():
     return {"ok": True}
 
 
+@app.get("/api/usage")
+def api_usage():
+    """LLM 真实用量与成本:qwen token 用量按 DashScope 官方价表实时累计(元)。"""
+    from src.utils.usage import usage_totals
+    from src.utils import pricing
+    return {**usage_totals(), "endpoint": "intl (Singapore)",
+            "prices_per_million_yuan": pricing.PRICING}
+
+
+# 启动时打印可观测/计费状态
+_ls_on = (os.getenv("LANGSMITH_TRACING") or "").lower() == "true" and bool(os.getenv("LANGSMITH_API_KEY"))
+logger.info("[obs] LangSmith tracing " + (
+    f"ON · project={os.getenv('LANGSMITH_PROJECT') or 'default'}" if _ls_on
+    else "OFF (设 LANGSMITH_TRACING=true + LANGSMITH_API_KEY 开启)"))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)

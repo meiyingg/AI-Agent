@@ -7,6 +7,9 @@ langchain-text-splitters>=0.3.0
 langchain-chroma>=0.2.0
 langgraph>=0.2.0
 
+# 可观测性: LangSmith 多Agent全链路追踪(设 LANGSMITH_API_KEY + LANGSMITH_TRACING=true 才启用)
+langsmith>=0.1.0
+
 # 向量库 / 模型 (Tongyi / DashScope; DashScopeRerank 也走 dashscope)
 chromadb>=0.5.0
 dashscope>=1.20.0
