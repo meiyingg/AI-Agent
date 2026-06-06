@@ -30,7 +30,7 @@ export function MonitoringView() {
   return (
     <PageContainer
       title="Monitoring"
-      subtitle="LLM 用量与真实成本(DashScope 新加坡价)· Agent / 工具调用统计"
+      subtitle="LLM usage & real cost (DashScope Singapore pricing) · agent / tool-call stats"
       icon={Activity}
       actions={<button onClick={refresh} className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent">Refresh</button>}
     >
