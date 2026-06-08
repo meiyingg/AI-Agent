@@ -17,9 +17,9 @@ export interface ChatMsg {
 }
 
 const EXAMPLES = [
-  "What was the meeting decision on the cross-border logistics plan?",
-  "Should our battery factory build a plant in Malaysia?",
-  "Latest policies on sodium-ion batteries in Southeast Asia",
+  "When does our DoughWorks dough contract end, and at what price?",
+  "Should we launch a new virtual brand on our Jurong (K4) kitchen?",
+  "Latest food-delivery commission rates in Singapore",
 ];
 
 export function ChatPanel({
@@ -165,9 +165,9 @@ function Empty({ onPick, disabled }: { onPick: (t: string) => void; disabled: bo
       <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary/10">
         <Sparkles className="size-6 text-primary" />
       </div>
-      <h2 className="text-lg font-semibold">Chamber Investment Advisor</h2>
+      <h2 className="text-lg font-semibold">Foodsta Kitchens AI Advisor</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Look up meeting minutes / check industry news / get investment recommendations — the system decides how to answer.
+        Look up internal docs &amp; contracts / check the latest F&amp;B market / get a data-backed recommendation — the system decides how to answer.
       </p>
       <div className="mt-5 flex w-full flex-col gap-2">
         {EXAMPLES.map((ex) => (

@@ -31,7 +31,7 @@ export function LoginScreen() {
             <Brain className="size-6" />
           </div>
           <div>
-            <div className="text-lg font-semibold">Chamber Investment Advisor</div>
+            <div className="text-lg font-semibold">Foodsta Kitchens AI Advisor</div>
             <div className="text-sm text-muted-foreground">Multi-Agent · Advanced RAG · Long-term Memory</div>
           </div>
         </div>

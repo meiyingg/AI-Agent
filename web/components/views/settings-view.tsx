@@ -97,7 +97,7 @@ export function SettingsView() {
           </Card>
 
           <Card icon={Info} title="About">
-            <Row k="Project" v="Chamber Investment Advisor · Multi-Agent + RAG + Long-term Memory" />
+            <Row k="Project" v="Foodsta Kitchens AI Advisor · Multi-Agent + RAG + Long-term Memory" />
           </Card>
 
           <p className="px-1 text-xs text-muted-foreground">

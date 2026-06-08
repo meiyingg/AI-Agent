@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chamber Investment Advisor",
-  description: "Multi-Agent · Advanced RAG · Long-term Memory — enterprise-grade AI investment advisor",
+  title: "Foodsta Kitchens AI Advisor",
+  description: "Multi-Agent · Advanced RAG · Long-term Memory — AI operations & decision advisor for cloud kitchens",
 };
 
 export default function RootLayout({

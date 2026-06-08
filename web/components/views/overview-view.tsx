@@ -39,7 +39,7 @@ export function OverviewView({ onNavigate }: { onNavigate: (v: string) => void }
     .filter((x) => x.value > 0);
 
   return (
-    <PageContainer title="Overview" subtitle="Chamber Investment Advisor · Multi-Agent + Advanced RAG + Long-term Memory" icon={LayoutDashboard}>
+    <PageContainer title="Overview" subtitle="Foodsta Kitchens AI Advisor · Multi-Agent + Advanced RAG + Long-term Memory" icon={LayoutDashboard}>
       {/* 指标 */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard icon={Database} label="KB files" value={stats?.kb.files ?? "—"} sub={`${(stats?.kb.chars ?? 0).toLocaleString()} chars`} />

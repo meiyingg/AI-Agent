@@ -63,7 +63,7 @@ export function ProfileView() {
         <div className="space-y-4">
           <Field label="Company profile" hint="One line: industry / main business / markets">
             <Textarea rows={2} value={p.profile} onChange={(e) => setP({ ...p, profile: e.target.value })}
-              placeholder="e.g. A sodium-ion battery storage manufacturer, mainly serving Southeast Asia" />
+              placeholder="e.g. A cloud-kitchen operator running multiple virtual F&B brands across Singapore" />
           </Field>
           <Field label="Preferences" hint="Risk appetite / focus / constraints">
             <Textarea rows={2} value={p.preferences} onChange={(e) => setP({ ...p, preferences: e.target.value })}
@@ -72,11 +72,11 @@ export function ProfileView() {
           <Field label="Key facts" hint="One per line; auto-deduplicated and capped">
             <Textarea rows={6} value={factsText} onChange={(e) => setFactsText(e.target.value)}
               className="font-mono text-xs"
-              placeholder={"Core business: sodium-ion battery storage\nTarget market: Southeast Asia\nPlanned annual capacity: 5GWh"} />
+              placeholder={"Core business: cloud kitchens · multiple virtual F&B brands\nMarkets: Singapore (+ SEA)\nKitchens: K1 Central · K2 East · K4 West"} />
           </Field>
           <Field label="Past conclusions summary" hint="A digest of previous advice (optional)">
             <Textarea rows={3} value={p.history} onChange={(e) => setP({ ...p, history: e.target.value })}
-              placeholder="e.g. Previously advised entering Kedah via an asset-light PACK model" />
+              placeholder="e.g. Previously approved a 6-week healthy-bowl pilot on the K2 kitchen" />
           </Field>
         </div>
       )}

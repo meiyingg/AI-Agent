@@ -98,7 +98,7 @@ export default function Home() {
               <Brain className="size-4" />
             </div>
             <div className="min-w-0 leading-tight">
-              <div className="truncate text-sm font-semibold">Chamber Investment Advisor</div>
+              <div className="truncate text-sm font-semibold">Foodsta Kitchens AI Advisor</div>
               <div className="hidden text-[11px] text-muted-foreground sm:block">Multi-Agent · Advanced RAG · Long-term Memory</div>
             </div>
           </div>
