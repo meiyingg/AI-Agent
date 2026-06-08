@@ -1,14 +1,15 @@
-"""通义千问 / DashScope(新加坡 / 国际端点)真实价目表 + 成本计算。
+"""通义千问 / DashScope 国内端点真实价目表 + 成本计算。
 
-价格来源:阿里云百炼官方定价页(2026-06 用户核对)。单位:元 / 每百万 token,(输入, 输出)。
-本项目只用新加坡(国际)端点,故只列国际价;embedding 仅按输入计费(输出价 0)。
+价格来源：阿里云百炼官方账单(2026-06 用户核对)。单位：元 / 每百万 token，(输入, 输出)。
+注：DashScope SDK 默认连国内端点(dashscope.aliyuncs.com)；若切换到国际端点
+需设 DASHSCOPE_API_BASE=https://dashscope-intl.aliyuncs.com/api/v1 并更新此价表。
 """
 
-# 元 / 1,000,000 tokens —— (input, output),DashScope 国际 / 新加坡端点
+# 元 / 1,000,000 tokens —— (input, output)，DashScope 国内端点（华北2 北京）
 PRICING = {
-    "qwen-max": (11.743, 46.971),
-    "qwq-plus": (5.871, 17.614),
-    "text-embedding-v4": (0.514, 0.0),
+    "qwen-max": (2.4, 9.6),              # input ¥0.0024/千tokens, output ¥0.0096/千tokens
+    "qwq-plus": (1.6, 4.0),              # input ¥0.0016/千tokens, output ¥0.004/千tokens
+    "text-embedding-v4": (0.5, 0.0),     # input ¥0.0005/千tokens, output 不计费
 }
 
 
