@@ -380,6 +380,60 @@ def admin_usage_tools():
     return db.tool_stats()
 
 
+# ---- Eval (RAGAS,子进程运行 eval/run_eval.py) ----
+EVAL_STATUS: dict = {"state": "idle", "msg": ""}
+
+
+def _eval_job(limit: int):
+    import subprocess
+    EVAL_STATUS.update(state="running", msg=f"running (limit={limit or 'all'})…")
+    try:
+        cmd = [sys.executable, os.path.join(_ROOT, "eval", "run_eval.py")]
+        if limit:
+            cmd += ["--limit", str(limit)]
+        p = subprocess.run(cmd, capture_output=True, text=True, cwd=_ROOT, timeout=1800)
+        EVAL_STATUS.update(state="done" if p.returncode == 0 else "error",
+                           msg="done" if p.returncode == 0 else (p.stderr or p.stdout or "")[-400:])
+    except Exception as e:
+        EVAL_STATUS.update(state="error", msg=str(e)[:400])
+
+
+@app.get("/api/admin/eval/latest")
+def admin_eval_latest():
+    """最近一次 RAG 评测结果(分卡 + 每题),供 Eval 页展示。"""
+    p = os.path.join(_ROOT, "eval", "last_result.json")
+    if not os.path.exists(p):
+        return {"summary": {}, "items": [], "ts": None, "n": 0}
+
+    def _nn(o):                              # NaN → None,保证返回合法 JSON(NaN 会让浏览器解析崩)
+        if isinstance(o, float) and o != o:
+            return None
+        if isinstance(o, dict):
+            return {k: _nn(v) for k, v in o.items()}
+        if isinstance(o, list):
+            return [_nn(v) for v in o]
+        return o
+    try:
+        with open(p, encoding="utf-8") as f:
+            return _nn(json.load(f))
+    except Exception:
+        return {"summary": {}, "items": [], "ts": None, "n": 0}
+
+
+@app.get("/api/admin/eval/status")
+def admin_eval_status():
+    return EVAL_STATUS
+
+
+@app.post("/api/admin/eval/run")
+def admin_eval_run(limit: int = 5):
+    """后台跑一次评测(子进程,不阻塞)。limit=0 = 全量。"""
+    if EVAL_STATUS.get("state") == "running":
+        return {"state": "running"}
+    threading.Thread(target=_eval_job, args=(limit,), daemon=True).start()
+    return {"state": "started", "limit": limit}
+
+
 # 启动时打印可观测/计费状态
 _ls_on = (os.getenv("LANGSMITH_TRACING") or "").lower() == "true" and bool(os.getenv("LANGSMITH_API_KEY"))
 logger.info("[obs] LangSmith tracing " + (

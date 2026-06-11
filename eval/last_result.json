@@ -1,0 +1,39 @@
+{
+  "ts": "2026-06-11 20:55:31",
+  "n": 3,
+  "summary": {
+    "faithfulness": 1.0,
+    "answer_relevancy": 0.9346,
+    "context_precision": 0.8333,
+    "context_recall": 1.0
+  },
+  "items": [
+    {
+      "question": "When does our DoughWorks dough contract end, and what's the plan?",
+      "answer": "- The DoughWorks dough contract ends on **2026-06-30**.\n- The plan is to renegotiate the contract before it ends, with a target of a 5% unit-price reduction or to switch suppliers.",
+      "reference": "The DoughWorks dough contract ends on 2026-06-30. The plan is to renegotiate it for about a 5% unit-price reduction, or switch supplier.",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.91,
+      "context_precision": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "question": "What did we decide about expanding Now Pizza to Malaysia (Johor)?",
+      "answer": "- The decision about expanding Now Pizza to Malaysia (Johor) is **ON HOLD**.\n- The unit economics are unclear due to cross-border logistics and delivery-commission differences.\n- The plan is to revisit the expansion after reviewing the results of Project Leaf.",
+      "reference": "The Now Pizza expansion to Johor, Malaysia is ON HOLD. Unit economics are unclear given cross-border logistics and delivery-commission differences; it will be revisited after the Project Leaf results.",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.927,
+      "context_precision": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "question": "What are the success criteria for the Project Leaf pilot, and where does it run?",
+      "answer": "- **Success Criteria for Project Leaf Pilot:**\n  - ≥ 1,500 monthly orders\n  - Food cost ≤ 30% by week 6\n\n- **Location of the Pilot:**\n  - K2 East (Tampines) kitchen",
+      "reference": "Project Leaf is a 6-week pilot of a new healthy-bowl virtual brand on the K2 East (Tampines) kitchen. Success bar: at least 1,500 monthly orders and food cost of 30% or less by week 6.",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.967,
+      "context_precision": 0.5,
+      "context_recall": 1.0
+    }
+  ]
+}

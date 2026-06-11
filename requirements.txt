@@ -46,3 +46,8 @@ langgraph-checkpoint-postgres>=2.0
 langchain-postgres>=0.0.12
 # Cloudflare R2 (S3 兼容): 原始文件
 boto3>=1.34
+
+# 评估 (eval): RAGAS —— RAG 质量评测(faithfulness / answer relevancy / context precision·recall)
+# 判分模型与 embedding 指向通义 qwen(见 eval/run_eval.py),非 OpenAI
+ragas>=0.2.0
+datasets>=2.16.0

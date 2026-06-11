@@ -333,6 +333,25 @@ export async function getUsageTools(): Promise<ToolStats> {
   try { const r = await apiFetch(`/api/admin/usage/tools`); return r.json(); } catch { return { by_agent: [], by_tool: [] }; }
 }
 
+// ===== Eval (RAGAS) =====
+export interface EvalItem {
+  question: string; answer: string; reference: string;
+  faithfulness?: number | null; answer_relevancy?: number | null;
+  context_precision?: number | null; context_recall?: number | null;
+}
+export interface EvalResult { ts: string | null; n: number; summary: Record<string, number>; items: EvalItem[] }
+export interface EvalStatus { state: string; msg: string }
+
+export async function getEvalLatest(): Promise<EvalResult> {
+  try { const r = await apiFetch(`/api/admin/eval/latest`); return r.json(); } catch { return { ts: null, n: 0, summary: {}, items: [] }; }
+}
+export async function getEvalStatus(): Promise<EvalStatus> {
+  try { const r = await apiFetch(`/api/admin/eval/status`); return r.json(); } catch { return { state: "idle", msg: "" }; }
+}
+export async function runEval(limit = 5): Promise<EvalStatus> {
+  try { const r = await apiFetch(`/api/admin/eval/run?limit=${limit}`, { method: "POST" }); return r.json(); } catch { return { state: "error", msg: "request failed" }; }
+}
+
 // 决策记录(历史投资报告)
 export interface ReportSummary {
   id: string;

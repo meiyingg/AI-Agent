@@ -16,6 +16,7 @@ import {
   FileText,
   Search,
   Activity,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatView } from "@/components/views/chat-view";
@@ -25,6 +26,7 @@ import { ProfileView } from "@/components/views/profile-view";
 import { SettingsView } from "@/components/views/settings-view";
 import { ReportsView } from "@/components/views/reports-view";
 import { MonitoringView } from "@/components/views/monitoring-view";
+import { EvalView } from "@/components/views/eval-view";
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationBell } from "@/components/notification-bell";
 import { UserMenu } from "@/components/user-menu";
@@ -39,6 +41,7 @@ const NAV = [
   { id: "knowledge", label: "Knowledge", Icon: Database },
   { id: "profile", label: "Profile", Icon: Building2 },
   { id: "monitoring", label: "Monitoring", Icon: Activity },
+  { id: "eval", label: "Eval", Icon: FlaskConical },
   { id: "settings", label: "Settings", Icon: Settings },
 ] as const;
 
@@ -193,6 +196,7 @@ export default function Home() {
           {view === "knowledge" && <KnowledgeView />}
           {view === "profile" && <ProfileView />}
           {view === "monitoring" && <MonitoringView />}
+          {view === "eval" && <EvalView />}
           {view === "settings" && <SettingsView />}
         </main>
       </div>
