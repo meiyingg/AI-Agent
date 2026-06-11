@@ -12,7 +12,8 @@ import {
   type UsageSummary, type UsagePoint, type UsageRecentRow, type ToolStats,
 } from "@/lib/api";
 
-const yuan = (n: number) => "¥" + (n ?? 0).toFixed(4);
+const CNY_TO_SGD = 0.19; // 人民币 → 新币 近似汇率(按实时汇率调整即可)
+const sgd = (n: number) => "S$" + ((n ?? 0) * CNY_TO_SGD).toFixed(4);
 const num = (n: number) => (n ?? 0).toLocaleString();
 
 export function MonitoringView() {
@@ -52,17 +53,17 @@ export function MonitoringView() {
     >
       {/* ── 指标卡 ── */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard icon={DollarSign} label="Total cost" value={yuan(t?.yuan ?? 0)} />
+        <StatCard icon={DollarSign} label="Total cost" value={sgd(t?.yuan ?? 0)} />
         <StatCard icon={Hash} label="Total tokens" value={num((t?.in_tokens ?? 0) + (t?.out_tokens ?? 0))}
           sub={`in ${num(t?.in_tokens ?? 0)} · out ${num(t?.out_tokens ?? 0)}`} />
         <StatCard icon={MessageSquare} label="Calls" value={num(t?.calls ?? 0)} />
-        <StatCard icon={Calendar} label="Today" value={yuan(sum?.today?.yuan ?? 0)}
+        <StatCard icon={Calendar} label="Today" value={sgd(sum?.today?.yuan ?? 0)}
           sub={`${num(sum?.today?.calls ?? 0)} calls`} />
       </div>
 
       {/* ── 图表 + 模型 ── */}
       <div className="grid gap-3 md:grid-cols-2">
-        <Panel icon={TrendingUp} title="Daily cost (¥, last 14 days)">
+        <Panel icon={TrendingUp} title="Daily cost (S$, last 14 days)">
           {series.length ? <CostChart data={series} /> : <Empty text="No data yet" />}
         </Panel>
         <Panel icon={Cpu} title="By model">
@@ -74,7 +75,7 @@ export function MonitoringView() {
                   <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Calls</th>
                   <th className="pb-2 text-right text-xs font-medium text-muted-foreground">In</th>
                   <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Out</th>
-                  <th className="pb-2 text-right text-xs font-medium text-muted-foreground">¥</th>
+                  <th className="pb-2 text-right text-xs font-medium text-muted-foreground">S$</th>
                 </tr>
               </thead>
               <tbody>
@@ -84,7 +85,7 @@ export function MonitoringView() {
                     <td className="py-2 text-right tabular-nums text-muted-foreground">{num(m.calls)}</td>
                     <td className="py-2 text-right tabular-nums text-muted-foreground">{num(m.in_tokens)}</td>
                     <td className="py-2 text-right tabular-nums text-muted-foreground">{num(m.out_tokens)}</td>
-                    <td className="py-2 text-right tabular-nums font-medium">{yuan(m.yuan)}</td>
+                    <td className="py-2 text-right tabular-nums font-medium">{sgd(m.yuan)}</td>
                   </tr>
                 ))}
                 {!sum?.by_model?.length && (
@@ -117,7 +118,7 @@ export function MonitoringView() {
                 <th className="pb-2 text-left text-xs font-medium text-muted-foreground">Kind</th>
                 <th className="pb-2 text-right text-xs font-medium text-muted-foreground">In</th>
                 <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Out</th>
-                <th className="pb-2 text-right text-xs font-medium text-muted-foreground">¥</th>
+                <th className="pb-2 text-right text-xs font-medium text-muted-foreground">S$</th>
               </tr>
             </thead>
             <tbody>
@@ -130,7 +131,7 @@ export function MonitoringView() {
                   </td>
                   <td className="py-2 text-right tabular-nums text-muted-foreground">{num(r.in_tokens)}</td>
                   <td className="py-2 text-right tabular-nums text-muted-foreground">{num(r.out_tokens)}</td>
-                  <td className="py-2 text-right tabular-nums font-medium">{yuan(r.cost_yuan)}</td>
+                  <td className="py-2 text-right tabular-nums font-medium">{sgd(r.cost_yuan)}</td>
                 </tr>
               ))}
               {!recent.length && (
@@ -231,16 +232,16 @@ function padSeries(raw: UsagePoint[], days = 14): UsagePoint[] {
 }
 
 function CostChart({ data }: { data: UsagePoint[] }) {
-  const padded = padSeries(data);
+  const padded = padSeries(data).map((p) => ({ ...p, sgd: (p.yuan ?? 0) * CNY_TO_SGD }));
   return (
     <div className="h-[200px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={padded} margin={{ top: 8, right: 4, left: -12, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} vertical={false} />
           <XAxis dataKey="d" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} interval={1} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => `¥${v}`} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => "S$" + Number(v).toFixed(4)} />
           <Tooltip
-            formatter={(v) => ["¥" + Number(v ?? 0).toFixed(4), "Cost"]}
+            formatter={(v) => ["S$" + Number(v ?? 0).toFixed(4), "Cost"]}
             labelFormatter={(l) => `Date: ${l}`}
             contentStyle={{
               fontSize: 12, borderRadius: 8,
@@ -249,7 +250,7 @@ function CostChart({ data }: { data: UsagePoint[] }) {
               color: "var(--card-foreground)",
             }}
           />
-          <Bar dataKey="yuan" radius={[4, 4, 0, 0]} minPointSize={2}>
+          <Bar dataKey="sgd" radius={[4, 4, 0, 0]} minPointSize={2}>
             {padded.map((p, i) => (
               <Cell key={i} fill={p.yuan > 0 ? "var(--primary)" : "var(--muted)"} opacity={p.yuan > 0 ? 0.75 : 0.3} />
             ))}
