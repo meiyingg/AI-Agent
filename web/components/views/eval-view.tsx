@@ -8,11 +8,11 @@ import {
   type EvalResult, type EvalItem,
 } from "@/lib/api";
 
-const METRICS: { key: keyof EvalItem; label: string }[] = [
-  { key: "faithfulness", label: "Faithfulness" },
-  { key: "answer_relevancy", label: "Answer relevancy" },
-  { key: "context_precision", label: "Context precision" },
-  { key: "context_recall", label: "Context recall" },
+const METRICS: { key: keyof EvalItem; label: string; desc: string }[] = [
+  { key: "faithfulness", label: "Faithfulness", desc: "Is the answer backed by the retrieved sources? Guards against hallucination." },
+  { key: "answer_relevancy", label: "Answer relevancy", desc: "Does the answer actually address the question that was asked?" },
+  { key: "context_precision", label: "Context precision", desc: "Are the retrieved snippets on-topic, or is there noise?" },
+  { key: "context_recall", label: "Context recall", desc: "Did retrieval find everything the correct answer needs?" },
 ];
 
 function color(v: number | null | undefined): string {
@@ -111,6 +111,7 @@ export function EvalView() {
               <div className="text-3xl font-semibold leading-none tracking-tight" style={{ color: color(v) }}>
                 {fmt(v)}
               </div>
+              <div className="mt-2 text-[11px] leading-snug text-muted-foreground">{m.desc}</div>
             </div>
           );
         })}
@@ -124,7 +125,7 @@ export function EvalView() {
               <tr className="border-b">
                 <th className="pb-2 text-left text-xs font-medium text-muted-foreground">Question</th>
                 {METRICS.map((m) => (
-                  <th key={m.key as string} className="pb-2 text-center text-xs font-medium text-muted-foreground">{m.label.split(" ")[0]}</th>
+                  <th key={m.key as string} title={m.desc} className="pb-2 text-center text-xs font-medium text-muted-foreground">{m.label}</th>
                 ))}
               </tr>
             </thead>
