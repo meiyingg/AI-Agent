@@ -83,6 +83,7 @@ const TOOL_LABEL: Record<string, string> = {
   search_meeting_minutes: "Search Minutes",
   list_kb_files: "List KB Files",
   run_python: "Code Interpreter",
+  get_stock_data: "Market Data",
   generate_decision_report: "Generate Report",
 };
 

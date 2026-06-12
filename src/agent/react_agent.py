@@ -13,12 +13,13 @@ from src.utils.config import agent_conf, search_conf
 from src.utils.logger import logger
 from src.agent.tools import search_meeting_minutes, generate_decision_report, list_kb_files
 from src.agent.code_tools import run_python
+from src.agent.data_tools import get_stock_data
 from src.agent.middleware import monitor_tool, log_before_model, report_prompt_switch
 
 
 def _build_tools():
-    # 通用智能体的工具带:内部 RAG + 列文件 + 联网搜索 + 写代码执行 + 出报告
-    tools = [search_meeting_minutes, list_kb_files, run_python, generate_decision_report]
+    # 通用智能体的工具带:内部 RAG + 列文件 + 写代码执行 + 实时行情 + 联网搜索 + 出报告
+    tools = [search_meeting_minutes, list_kb_files, run_python, get_stock_data, generate_decision_report]
     # LangChain 官方 Tavily 在线检索工具 (实时, 不落库)
     try:
         from langchain_tavily import TavilySearch

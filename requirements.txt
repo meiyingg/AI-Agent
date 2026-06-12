@@ -20,6 +20,9 @@ rank_bm25>=0.2.2
 # 在线检索 (功能二): LangChain 官方 Tavily 工具
 langchain-tavily>=0.1.0
 
+# 实时行情工具: Yahoo Finance(免费、无 key)—— 给 Agent 取真实股价/指数,配 run_python 算波动率
+yfinance>=0.2.40
+
 # 配置 / 环境
 pyyaml>=6.0
 python-dotenv>=1.0.0
