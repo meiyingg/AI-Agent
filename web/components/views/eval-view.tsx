@@ -26,6 +26,7 @@ export function EvalView() {
   const [running, setRunning] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [limit, setLimit] = useState(5);
+  const [notice, setNotice] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function refresh() {
@@ -37,9 +38,15 @@ export function EvalView() {
   }, []);
 
   async function doRun() {
-    setRunning(true);
     setStatusMsg("starting…");
-    await runEval(limit);
+    const res = await runEval(limit);
+    // 线上只读(镜像无 demo 语料)→ 不实跑,弹提示
+    if (res.state === "readonly") {
+      setNotice(res.msg || "To run a new evaluation, please contact the system administrator.");
+      setStatusMsg("");
+      return;
+    }
+    setRunning(true);
     timer.current = setInterval(async () => {
       const s = await getEvalStatus();
       setStatusMsg(s.msg || s.state);
@@ -141,6 +148,32 @@ export function EvalView() {
         </div>
         <p className="mt-3 text-xs text-muted-foreground">🟢 ≥ 0.80 good · 🟡 0.50–0.80 ok · 🔴 &lt; 0.50 weak · 0–1, higher is better</p>
       </Panel>
+
+      {/* 只读提示弹窗(线上点 Run 时) */}
+      {notice && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setNotice(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border bg-card p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center gap-2 text-base font-semibold">
+              <FlaskConical className="size-4 text-primary" /> Evaluation
+            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">{notice}</p>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setNotice(null)}
+                className="rounded-md bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageContainer>
   );
 }

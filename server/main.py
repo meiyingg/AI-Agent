@@ -427,7 +427,12 @@ def admin_eval_status():
 
 @app.post("/api/admin/eval/run")
 def admin_eval_run(limit: int = 5):
-    """后台跑一次评测(子进程,不阻塞)。limit=0 = 全量。"""
+    """后台跑一次评测(子进程,不阻塞)。limit=0 = 全量。
+    线上镜像不含 demo 语料(或显式 EVAL_READONLY=1)→ 只读:不实跑,弹提示。"""
+    if os.getenv("EVAL_READONLY") == "1" or not os.path.isdir(os.path.join(_ROOT, "demo")):
+        return {"state": "readonly",
+                "msg": "The latest evaluation results have been synced and are shown here. "
+                       "To run a new evaluation, please contact the system administrator."}
     if EVAL_STATUS.get("state") == "running":
         return {"state": "running"}
     threading.Thread(target=_eval_job, args=(limit,), daemon=True).start()
