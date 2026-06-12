@@ -22,6 +22,7 @@ import {
   ArrowDownRight,
   FileDown,
   Copy,
+  Terminal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -80,12 +81,8 @@ const AGENT_ICON: Record<string, ComponentType<{ className?: string }>> = {
 const TOOL_LABEL: Record<string, string> = {
   tavily_search: "Web Search",
   search_meeting_minutes: "Search Minutes",
-  market_snapshot: "Market Snapshot",
-  estimate_roi: "Estimate ROI",
-  risk_score: "Risk Score",
-  cost_estimate: "Cost Estimate",
-  compare_options: "Compare Options",
-  policy_incentive: "Policy Incentives",
+  list_kb_files: "List KB Files",
+  run_python: "Code Interpreter",
   generate_decision_report: "Generate Report",
 };
 
@@ -219,14 +216,23 @@ function PhaseRow({ item }: { item: PhaseItem }) {
                   <ClampText text={a.text} />
                 </div>
               );
-            if (a.kind === "tool")
+            if (a.kind === "tool") {
+              // run_python:把模型写的代码渲染成代码块(面试时让人看到真代码)
+              const code =
+                a.tool === "run_python" && typeof a.args?.code === "string" ? (a.args.code as string) : null;
               return (
-                <div key={i} className="flex flex-wrap items-center gap-1.5 text-muted-foreground">
-                  <Wrench className="size-3 shrink-0 text-primary/70" />
-                  <span className="font-medium text-foreground/80">{TOOL_LABEL[a.tool] ?? a.tool}</span>
-                  {formatArgs(a.args) && <span>{formatArgs(a.args)}</span>}
+                <div key={i} className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground">
+                    <Wrench className="size-3 shrink-0 text-primary/70" />
+                    <span className="font-medium text-foreground/80">{TOOL_LABEL[a.tool] ?? a.tool}</span>
+                    {!code && formatArgs(a.args) && <span>{formatArgs(a.args)}</span>}
+                  </div>
+                  {code && <CodeBlock code={code} />}
                 </div>
               );
+            }
+            // run_python 的返回:渲染成 Output 块
+            if (a.tool === "run_python") return <OutputBlock key={i} text={a.preview} />;
             return (
               <div key={i} className="flex items-start gap-1.5 text-muted-foreground/80">
                 <ArrowDownRight className="mt-0.5 size-3 shrink-0" />
@@ -259,6 +265,46 @@ function formatArgs(args?: Record<string, unknown>): string {
   } catch {
     return "";
   }
+}
+
+// 代码解释器:模型写的 Python(终端风格 + 复制),让面试官看到真代码
+function CodeBlock({ code }: { code: string }) {
+  return (
+    <div className="overflow-hidden rounded-md border border-white/10 bg-zinc-950 dark:bg-zinc-900">
+      <div className="flex items-center justify-between border-b border-white/10 px-2.5 py-1">
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-300">
+          <Terminal className="size-3" /> Python
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard.writeText(code);
+            toast.success("Code copied");
+          }}
+          className="flex items-center gap-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
+        >
+          <Copy className="size-3" /> Copy
+        </button>
+      </div>
+      <pre className="max-h-72 overflow-auto p-2.5 text-[11.5px] leading-relaxed text-zinc-100">
+        <code className="font-mono">{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+// 代码运行结果(stdout)
+function OutputBlock({ text }: { text: string }) {
+  return (
+    <div className="overflow-hidden rounded-md border bg-muted/50">
+      <div className="flex items-center gap-1.5 border-b px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+        <ArrowDownRight className="size-3" /> Output
+      </div>
+      <pre className="max-h-60 overflow-auto p-2.5 text-[11.5px] leading-relaxed text-foreground/80">
+        <code className="whitespace-pre-wrap break-words font-mono">{text}</code>
+      </pre>
+    </div>
+  );
 }
 
 // 思考链面板：流式时自动跟随到底部；完成后从顶部可自由滚动阅读

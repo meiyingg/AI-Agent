@@ -66,11 +66,11 @@ sequenceDiagram
 | 角色 | 职责 | 能力 / 工具 | 实现 |
 |---|---|---|---|
 | 🧭 意图分诊 | 研判 一般问答 vs 投资决策 | LLM 分类 + 默认兜底 | [supervisor.py](src/graph/supervisor.py) |
-| 💬 通用助手 | 直接回答一般问题 | 单 ReAct Agent（内部RAG + 联网，自动选） | [react_agent.py](src/agent/react_agent.py) |
+| 💬 通用助手 | 直接回答一般问题 | 单 ReAct Agent（内部RAG + 联网 + 代码解释器，自动选） | [react_agent.py](src/agent/react_agent.py) |
 | 🧠 Supervisor | 拆解任务·路由·判停 | LLM 路由 + 规则兜底 + 防死循环（`Command`） | [supervisor.py](src/graph/supervisor.py) |
 | 📁 内部知识 | 查商会纪要/区域政策 | 高级RAG：BM25+向量混合 + `gte-rerank` 重排 | [subagents.py](src/agent/subagents.py) |
 | 🌐 行业调研 | 查外部行情/政策 | Tavily 实时联网（日期感知） | [subagents.py](src/agent/subagents.py) |
-| 📊 量化分析 | 算 ROI/风险/对比 | 6 类金融工具 Function Calling（模拟数据） | [analysis_tools.py](src/agent/analysis_tools.py) |
+| 📊 数据/计算 | 算 ROI/统计/建模/对比 | Code Interpreter：模型写 Python 隔离子进程执行 | [code_tools.py](src/agent/code_tools.py) |
 | ✍️ 投资建议 | 汇总出结构化建议 | LCEL + Pydantic Schema 校验 | [advisor.py](src/agent/advisor.py) |
 
 ### 0.4 企业级可靠性（治理与稳健）

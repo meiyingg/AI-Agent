@@ -8,7 +8,7 @@ from datetime import date
 from langchain.agents import create_agent
 from src.models.factory import reasoning_model
 from src.agent.tools import search_meeting_minutes, list_kb_files
-from src.agent.analysis_tools import ANALYSIS_TOOLS
+from src.agent.code_tools import run_python
 from src.utils.config import search_conf
 from src.utils.robust import degrade
 from src.utils.logger import logger
@@ -52,11 +52,12 @@ def _build_knowledge():
 def _build_analysis():
     return create_agent(
         model=reasoning_model,
-        system_prompt="You are an investment quant analyst. Based on the question, autonomously choose which analysis "
-                      "tools to call (market snapshot / ROI / risk / cost / option comparison / policy incentives) and "
-                      "output key quantitative conclusions. Note: the tools return simulated data, so flag conclusions "
-                      "as 'based on simulated estimates'.",
-        tools=ANALYSIS_TOOLS,
+        system_prompt="You are a data & computation analyst. For any quantitative question — math, statistics, "
+                      "financial modelling, ROI/payback, data crunching, option comparison — write Python and run it "
+                      "with the run_python tool instead of computing in your head; then explain the result in "
+                      "plain words. Write COMPLETE self-contained snippets and print() what you want to see; numpy and "
+                      "pandas are available. State any assumptions you had to make about the inputs.",
+        tools=[run_python],
     )
 
 
