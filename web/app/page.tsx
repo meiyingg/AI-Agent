@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useTheme } from "next-themes";
 import {
-  Brain,
   LayoutDashboard,
   MessageSquare,
   Database,
@@ -97,8 +97,16 @@ export default function Home() {
             <PanelLeft className="size-4" />
           </button>
           <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Brain className="size-4" />
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+              {/* 单色 logo：浅色主题底为近黑→logo 反相为白；深色主题底为近白→logo 保持黑。 */}
+              <Image
+                src="/logo.png"
+                alt="Foodsta Kitchens AI Advisor"
+                width={20}
+                height={20}
+                className="size-5 object-contain invert dark:invert-0"
+                priority
+              />
             </div>
             <div className="min-w-0 leading-tight">
               <div className="truncate text-sm font-semibold">Foodsta Kitchens AI Advisor</div>

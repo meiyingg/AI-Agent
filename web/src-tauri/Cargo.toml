@@ -1,0 +1,28 @@
+[package]
+name = "foodsta-advisor"
+version = "0.1.0"
+description = "Foodsta Kitchens AI Advisor — multi-agent investment advisor desktop/mobile shell"
+authors = ["Foodsta"]
+edition = "2021"
+
+# lib 是桌面与移动端共享的入口（移动端把它编译成 cdylib）。
+[lib]
+name = "foodsta_advisor_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# 发布构建瘦身：体积更小、启动更快。
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

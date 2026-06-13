@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/toaster";
+import { Intro } from "@/components/intro";
 import { AuthProvider } from "@/lib/auth";
 import { NotificationsProvider } from "@/lib/notifications";
 
@@ -41,6 +42,8 @@ export default function RootLayout({
             </NotificationsProvider>
           </AuthProvider>
         </ThemeProvider>
+        {/* 启动出场动画：覆盖全屏(含登录页)，播完/点击/跳过后淡出 */}
+        <Intro />
       </body>
     </html>
   );
