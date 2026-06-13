@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -20,6 +20,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Foodsta Kitchens AI Advisor",
   description: "Multi-Agent · Advanced RAG · Long-term Memory — AI operations & decision advisor for cloud kitchens",
+};
+
+// viewport-fit=cover：让 CSS env(safe-area-inset-*) 在安卓/刘海屏返回真实状态栏高度。
+export const viewport: Viewport = {
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

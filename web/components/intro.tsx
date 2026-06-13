@@ -76,9 +76,9 @@ export function Intro() {
         preload="auto"
         onEnded={finish}
         onError={finish}
-        // cover 铺满全屏：动画主体居中、两侧是大片空白背景，裁掉的只是空白，
-        // 竖屏手机也无黑边/接缝，logo 与文案完整可见。
-        className="h-full w-full object-cover"
+        // contain 完整显示动画(不放大裁切)：非 16:9 屏幕(尤其手机竖屏)上下留浅灰边，
+        // 与视频背景同色、融合自然；保证 logo 与文案完整可见。
+        className="h-full w-full object-contain"
       />
     </div>
   );

@@ -143,13 +143,13 @@ jobs:
         working-directory: web
         run: pnpm install --no-frozen-lockfile
 
-      - name: Generate icons
-        working-directory: web
-        run: pnpm tauri icon app-icon.png
-
       - name: Init Android project
         working-directory: web
         run: pnpm tauri android init
+
+      - name: Generate icons (after init → fills Android mipmaps with our icon, not the default)
+        working-directory: web
+        run: pnpm tauri icon app-icon.png
 
       - name: Build Android APK (debug-signed, installable, arm64 only)
         working-directory: web

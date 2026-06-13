@@ -79,7 +79,16 @@ export default function Home() {
   if (!user) return <LoginScreen />;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div
+      className="flex h-[100dvh] flex-col overflow-hidden"
+      // 安卓/刘海屏安全区：把内容推到系统状态栏与挖孔之外，避免顶栏按钮被状态栏盖住、点不到。
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
+    >
       <header className="flex h-14 shrink-0 items-center justify-between border-b px-3">
         <div className="flex min-w-0 items-center gap-2">
           <button
@@ -158,15 +167,15 @@ export default function Home() {
         {/* mobile drawer backdrop */}
         {mobileNavOpen && (
           <div
-            className="fixed inset-x-0 bottom-0 top-14 z-30 bg-black/40 md:hidden"
+            className="fixed inset-x-0 bottom-0 top-[calc(3.5rem_+_env(safe-area-inset-top))] z-30 bg-black/40 md:hidden"
             onClick={() => setMobileNavOpen(false)}
           />
         )}
         <nav
           className={cn(
             "flex shrink-0 flex-col gap-0.5 border-r bg-background p-2",
-            // mobile: off-canvas drawer under the header
-            "fixed bottom-0 left-0 top-14 z-40 w-60 transition-transform",
+            // mobile: off-canvas drawer under the header(顶部偏移含状态栏安全区)
+            "fixed bottom-0 left-0 top-[calc(3.5rem_+_env(safe-area-inset-top))] z-40 w-60 transition-transform",
             mobileNavOpen ? "translate-x-0" : "-translate-x-full",
             // md+: back in normal flow; width collapses
             "md:static md:top-auto md:z-auto md:w-[168px] md:translate-x-0 md:transition-all",
