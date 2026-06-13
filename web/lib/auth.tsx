@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { login as apiLogin } from "@/lib/api";
+import { login as apiLogin, type LoginResult } from "@/lib/api";
 
 export interface User {
   name: string;
@@ -11,7 +11,7 @@ export interface User {
 interface Ctx {
   user: User | null;
   ready: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<LoginResult>;
   logout: () => void;
 }
 
@@ -33,9 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setReady(true);
   }, []);
 
-  async function login(username: string, password: string): Promise<boolean> {
-    const ok = await apiLogin(username, password);
-    if (!ok) return false;
+  async function login(username: string, password: string): Promise<LoginResult> {
+    const res = await apiLogin(username, password);
+    if (!res.ok) return res;
     const u: User = { name: username.trim() || "admin", role: "Investment Committee" };
     setUser(u);
     try {
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    return true;
+    return { ok: true };
   }
 
   function logout() {

@@ -15,18 +15,29 @@ function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(API_BASE + path, { ...init, headers });
 }
 
-/** 登录：校验账号口令，成功返回 true。本地未配置口令时后端直接放行。 */
-export async function login(username: string, password: string): Promise<boolean> {
+// 登录结果：区分"密码错"与"连不上后端"，避免把网络/配置问题误报成密码错误。
+export type LoginResult = {
+  ok: boolean;
+  reason?: "bad_credentials" | "unreachable" | "server_error";
+};
+
+/** 登录：校验账号口令。本地未配置口令时后端直接放行。 */
+export async function login(username: string, password: string): Promise<LoginResult> {
+  let r: Response;
   try {
-    const r = await apiFetch(`/api/login`, {
+    r = await apiFetch(`/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    return r.ok;
   } catch {
-    return false;
+    // fetch 直接抛错 = 根本没连上后端(最常见: 打包时 NEXT_PUBLIC_API_BASE 没配,
+    // API_BASE 退回 127.0.0.1，桌面/手机端没有本地后端)
+    return { ok: false, reason: "unreachable" };
   }
+  if (r.ok) return { ok: true };
+  if (r.status === 401) return { ok: false, reason: "bad_credentials" };
+  return { ok: false, reason: "server_error" };
 }
 
 export interface Report {

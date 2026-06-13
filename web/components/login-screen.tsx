@@ -16,9 +16,15 @@ export function LoginScreen() {
     if (loading) return;
     setLoading(true);
     setError("");
-    const ok = await login(username, password);
-    if (!ok) {
-      setError("Wrong username or password");
+    const res = await login(username, password);
+    if (!res.ok) {
+      setError(
+        res.reason === "unreachable"
+          ? "Can't reach the backend server — check your connection or the app's API address."
+          : res.reason === "server_error"
+            ? "Login failed, please try again."
+            : "Wrong username or password",
+      );
       setLoading(false);
     }
     // on success the app re-renders (user is set) and this screen unmounts

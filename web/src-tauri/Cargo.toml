@@ -26,3 +26,10 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# debug 构建(含 `tauri android build --debug`)默认带完整调试符号，.so 体积巨大，
+# 安卓 universal APK 能到 250MB+。本壳层只是 WebView 容器，不需要调试 Rust，
+# 关掉调试符号并 strip，可把 debug 产物大幅瘦身。
+[profile.dev]
+debug = false
+strip = true

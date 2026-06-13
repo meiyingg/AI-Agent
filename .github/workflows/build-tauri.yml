@@ -39,6 +39,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify backend API base is set
+        shell: bash
+        run: |
+          if [ -z "${NEXT_PUBLIC_API_BASE:-}" ]; then
+            echo "::error::NEXT_PUBLIC_API_BASE 为空。到 仓库 Settings → Secrets and variables → Actions → 【Variables】标签(不是 Secrets)添加 NEXT_PUBLIC_API_BASE=https://你的后端域名；否则打出的 App 会请求 127.0.0.1，登录必然失败。"
+            exit 1
+          fi
+          echo "✓ NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE}"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -85,6 +94,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify backend API base is set
+        shell: bash
+        run: |
+          if [ -z "${NEXT_PUBLIC_API_BASE:-}" ]; then
+            echo "::error::NEXT_PUBLIC_API_BASE 为空。到 仓库 Settings → Secrets and variables → Actions → 【Variables】标签(不是 Secrets)添加 NEXT_PUBLIC_API_BASE=https://你的后端域名；否则打出的 App 会请求 127.0.0.1，登录必然失败。"
+            exit 1
+          fi
+          echo "✓ NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE}"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -133,9 +151,12 @@ jobs:
         working-directory: web
         run: pnpm tauri android init
 
-      - name: Build Android APK (debug-signed, installable)
+      - name: Build Android APK (debug-signed, installable, arm64 only)
         working-directory: web
-        run: pnpm tauri android build --apk --debug
+        # 只编 arm64-v8a(覆盖绝大多数现代手机)；配合 Cargo profile.dev 的 strip，
+        # APK 从 ~250MB(universal + 调试符号) 降到 ~20MB 量级。
+        # 若以后要支持 32 位老机/x86 模拟器，再追加 ,armv7-linux-androideabi,x86_64-linux-android。
+        run: pnpm tauri android build --apk --debug --target aarch64-linux-android
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
