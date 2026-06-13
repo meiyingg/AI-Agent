@@ -155,8 +155,9 @@ jobs:
         working-directory: web
         # 只编 arm64-v8a(覆盖绝大多数现代手机)；配合 Cargo profile.dev 的 strip，
         # APK 从 ~250MB(universal + 调试符号) 降到 ~20MB 量级。
-        # 若以后要支持 32 位老机/x86 模拟器，再追加 ,armv7-linux-androideabi,x86_64-linux-android。
-        run: pnpm tauri android build --apk --debug --target aarch64-linux-android
+        # Tauri 用短架构名(aarch64/armv7/i686/x86_64)，不是 rust 三元组。
+        # 若以后要支持 32 位老机/x86 模拟器，再追加 ,armv7,x86_64。
+        run: pnpm tauri android build --apk --debug --target aarch64
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

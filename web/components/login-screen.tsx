@@ -34,16 +34,14 @@ export function LoginScreen() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <div className="w-full max-w-sm rounded-2xl border bg-card p-8 shadow-xl">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-primary">
-            <Image
-              src="/logo.png"
-              alt="Foodsta Kitchens AI Advisor"
-              width={30}
-              height={30}
-              className="size-7 object-contain invert dark:invert-0"
-              priority
-            />
-          </div>
+          <Image
+            src="/logo.png"
+            alt="Foodsta Kitchens AI Advisor"
+            width={196}
+            height={136}
+            className="h-12 w-auto object-contain dark:invert"
+            priority
+          />
           <div>
             <div className="text-lg font-semibold">Foodsta Kitchens AI Advisor</div>
             <div className="text-sm text-muted-foreground">Multi-Agent · Advanced RAG · Long-term Memory</div>

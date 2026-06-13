@@ -97,17 +97,15 @@ export default function Home() {
             <PanelLeft className="size-4" />
           </button>
           <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-              {/* 单色 logo：浅色主题底为近黑→logo 反相为白；深色主题底为近白→logo 保持黑。 */}
-              <Image
-                src="/logo.png"
-                alt="Foodsta Kitchens AI Advisor"
-                width={20}
-                height={20}
-                className="size-5 object-contain invert dark:invert-0"
-                priority
-              />
-            </div>
+            {/* 单色 logo 直接随主题反相(浅色显黑 / 深色显白)，无背景块、紧贴无留白。 */}
+            <Image
+              src="/logo.png"
+              alt="Foodsta Kitchens AI Advisor"
+              width={196}
+              height={136}
+              className="h-7 w-auto shrink-0 object-contain dark:invert"
+              priority
+            />
             <div className="min-w-0 leading-tight">
               <div className="truncate text-sm font-semibold">Foodsta Kitchens AI Advisor</div>
               <div className="hidden text-[11px] text-muted-foreground sm:block">Multi-Agent · Advanced RAG · Long-term Memory</div>
