@@ -1,22 +1,7 @@
 // 桌面与移动端共享的运行入口。移动端由 tauri 通过 mobile_entry_point 调用。
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default();
-
-    // 单实例(仅桌面)：防多开。第二次启动时不再开新窗口，而是唤回已开的主窗口。必须最先注册。
-    #[cfg(desktop)]
-    {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            use tauri::Manager;
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.unminimize();
-                let _ = w.set_focus();
-            }
-        }));
-    }
-
-    builder
+    tauri::Builder::default()
         // opener: 让报告里的来源链接用系统浏览器打开（而不是在 App 内跳走）。
         .plugin(tauri_plugin_opener::init())
         .setup(|_app| {
