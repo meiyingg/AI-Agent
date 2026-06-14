@@ -9,6 +9,14 @@ import { streamChat, listThreads, getThread, type Thread } from "@/lib/api";
 
 const EMPTY_RUN: RunState = { mode: undefined, items: [], report: null, active: false };
 
+// 把仍在 running 的阶段一律标记完成；答案到达 / 收尾时调用，避免最后一个阶段永远转圈。
+const completePhases = (r: RunState): RunState => ({
+  ...r,
+  items: r.items.map((it) =>
+    it.kind === "phase" && it.status === "running" ? { ...it, status: "done" } : it,
+  ),
+});
+
 let _c = 0;
 const uid = () => `${Date.now()}-${_c++}`;
 
@@ -149,13 +157,14 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
               const id = uid();
               setMessages((m) => [...m, { id, role: "assistant", content, kind: "text" }]);
             }
+            setRun(completePhases); // 答案已出 → 立即完成所有 running 阶段(不等连接关闭)
             break;
           }
           case "final": {
             const report = e.report;
             const findings = e.findings;
             const id = uid();
-            setRun((r) => ({ ...r, report, findings }));
+            setRun((r) => ({ ...completePhases(r), report, findings }));
             setMessages((m) => [...m, { id, role: "assistant", content: "", kind: "report-pointer", decision: report?.decision }]);
             break;
           }
@@ -177,15 +186,8 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
       if (runTokenRef.current === myToken) {
         setLoading(false);
         streamIdRef.current = null;
-        // 流结束即收尾：把仍在 running 的阶段一律标记完成，
-        // 避免最后一个阶段(如 Assistant)的 done 事件被代理尾部缓冲憋住/丢失而永远转圈。
-        setRun((r) => ({
-          ...r,
-          active: false,
-          items: r.items.map((it) =>
-            it.kind === "phase" && it.status === "running" ? { ...it, status: "done" } : it,
-          ),
-        }));
+        // 收尾兜底：把仍在 running 的阶段一律标记完成。
+        setRun((r) => ({ ...completePhases(r), active: false }));
       }
       listThreads().then(setThreads); // 历史列表不受 token 限制：任何流(含后台)结束都刷新
     }

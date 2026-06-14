@@ -121,6 +121,9 @@ def chat(req: ChatReq):
                     except Exception:
                         logger.warning("[Reports] 保存失败")
                 yield _sse(ev)
+            # 尾部填充：把最后几个小事件(phase done / message / done)挤出代理缓冲，
+            # 否则它们会被攒到连接关闭才发 → 前端"答案已出、阶段还在转圈"。
+            yield ":" + " " * 2048 + "\n\n"
             advisor.maybe_learn(tid)          # 阶段3b: 对话结束自动提炼(默认关)
         except Exception as e:
             logger.exception("[/api/chat] 流式出错")

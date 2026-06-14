@@ -61,8 +61,8 @@ export function Intro() {
     <div
       onClick={finish}
       role="presentation"
-      // 底色取自动画实际背景(浅灰渐变 #D7D6D9→#AAB0B6)，避免视频解码前一瞬的色差。
-      style={{ background: "linear-gradient(135deg, #DAD9DC 0%, #AFB1B6 100%)" }}
+      // 填充背景：纯白。
+      style={{ background: "#ffffff" }}
       className={`fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-500 ${
         fading ? "opacity-0" : "opacity-100"
       }`}

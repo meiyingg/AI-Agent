@@ -112,7 +112,7 @@ export default function Home() {
               alt="Foodsta Kitchens AI Advisor"
               width={196}
               height={136}
-              className="h-7 w-auto shrink-0 object-contain dark:invert"
+              className="h-6 w-auto shrink-0 object-contain dark:invert sm:h-7"
               priority
             />
             <div className="min-w-0 leading-tight">
