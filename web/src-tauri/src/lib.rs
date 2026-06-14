@@ -23,7 +23,8 @@ pub fn run() {
                     .menu(&menu)
                     // 关键：菜单走右键(Windows 习惯)，左键留给"唤回窗口"。
                     // 默认是左键弹菜单，会和下面的左键唤回冲突，导致右键反而出不了菜单 → 退不掉。
-                    .show_menu_on_left_click(false)
+                    // 用旧名 menu_on_left_click(全 2.x 都有)，避免新名 show_menu_on_left_click 在旧版编不过。
+                    .menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "show" => {
                             if let Some(w) = app.get_webview_window("main") {

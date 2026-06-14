@@ -20,6 +20,11 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# 规避上游损坏版本：brotli 8.0.3 与 alloc-no-stdlib 自相矛盾(2.0.4 vs 3.0.0)，编译必失败。
+# 仓库没提交 Cargo.lock，CI 每次解析最新版就会撞上它。钉到 <8.0.3，让 cargo 在 Tauri 允许范围内
+# 选最高的可用好版本(通常 8.0.2，即 Run #5 成功时用的那个)。brotli 只是 Tauri 内部压缩资源用的传递依赖。
+brotli = "<8.0.3"
+
 # 发布构建瘦身：体积更小、启动更快。
 [profile.release]
 panic = "abort"
