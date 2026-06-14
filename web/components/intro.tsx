@@ -92,9 +92,9 @@ export function Intro() {
         }}
         onEnded={finish}
         onError={finish}
-        // contain 完整显示动画(不放大裁切)：非 16:9 屏幕上下留白边(与白底融合)；保证 logo 与文案完整可见。
-        // opacity 受 ready 控制：缓冲/未就绪时透明，播起来才淡入。
-        className="h-full w-full object-contain transition-opacity duration-300"
+        // 视频最多占视口 75%(电脑端按高、手机端按宽各约 75%)，居中、四周留白 → 更小更清楚。
+        // contain 保持比例不裁切；opacity 受 ready 控制：缓冲/未就绪时透明，播起来才淡入。
+        className="max-h-[75%] max-w-[75%] object-contain transition-opacity duration-300"
         style={{ opacity: ready ? 1 : 0 }}
       />
     </div>
