@@ -21,6 +21,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
   const [mobileTab, setMobileTab] = useState<"chat" | "work">("chat"); // 手机: 聊天 / 工作台 切换
   const threadRef = useRef<string | null>(null);
   const streamIdRef = useRef<string | null>(null);
+  const runTokenRef = useRef(0); // 标识"当前拥有 UI 的对话流"；切换/新建时自增，使旧流回调失效(旧流仍后台跑完)
 
   useEffect(() => {
     listThreads().then(setThreads);
@@ -50,6 +51,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
 
   async function handleSend(text: string) {
     if (loading) return;
+    const myToken = ++runTokenRef.current; // 本次发送的归属 token
     const userId = uid();
     setMessages((m) => [...m, { id: userId, role: "user", content: text }]);
     setRun({ mode: undefined, items: [], report: null, active: true });
@@ -57,6 +59,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
     setLoading(true);
     try {
       await streamChat(text, threadRef.current, (e) => {
+        if (runTokenRef.current !== myToken) return; // 已切走/新建：丢弃此流的 UI 更新
         switch (e.type) {
           case "thread":
             threadRef.current = e.thread_id;
@@ -163,18 +166,25 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
         }
       });
     } catch (err) {
-      const id = uid();
-      setMessages((m) => [...m, { id, role: "assistant", content: `Request failed: ${String(err)}`, kind: "text" }]);
+      if (runTokenRef.current === myToken) {
+        const id = uid();
+        setMessages((m) => [...m, { id, role: "assistant", content: `Request failed: ${String(err)}`, kind: "text" }]);
+      }
     } finally {
-      setLoading(false);
-      streamIdRef.current = null;
-      setRun((r) => ({ ...r, active: false }));
-      listThreads().then(setThreads);
+      // 仅当本流仍拥有 UI 时才收尾，避免后台旧流把当前对话的 loading/run 状态重置
+      if (runTokenRef.current === myToken) {
+        setLoading(false);
+        streamIdRef.current = null;
+        setRun((r) => ({ ...r, active: false }));
+        listThreads().then(setThreads);
+      }
     }
   }
 
   async function selectThread(id: string) {
-    if (loading || id === activeThread) return;
+    if (id === activeThread) return;
+    runTokenRef.current++; // 当前流转后台，立即可切换
+    setLoading(false);
     try {
       const detail = await getThread(id);
       threadRef.current = id;
@@ -194,11 +204,12 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
   }
 
   function newChat() {
-    if (loading) return;
+    runTokenRef.current++; // 让正在跑的流转入后台(它会自己跑完并保存)，UI 立即可开新对话
     threadRef.current = null;
     setActiveThread(null);
     setMessages([]);
     setRun(EMPTY_RUN);
+    setLoading(false);
     setMobileTab("chat");
     onNewChat?.(); // 桌面端: 顺便收起左侧导航栏
   }
@@ -231,7 +242,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
 
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-[210px] shrink-0 flex-col border-r lg:flex">
-          <Sessions threads={threads} activeId={activeThread} loading={loading} onSelect={selectThread} onNew={newChat} />
+          <Sessions threads={threads} activeId={activeThread} onSelect={selectThread} onNew={newChat} />
         </aside>
         <div
           className={cn(

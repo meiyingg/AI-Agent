@@ -9,20 +9,18 @@ import type { Thread } from "@/lib/api";
 export function Sessions({
   threads,
   activeId,
-  loading,
   onSelect,
   onNew,
 }: {
   threads: Thread[];
   activeId: string | null;
-  loading: boolean;
   onSelect: (id: string) => void;
   onNew: () => void;
 }) {
   return (
     <div className="flex h-full flex-col bg-muted/40">
       <div className="p-2.5">
-        <Button onClick={onNew} variant="outline" disabled={loading} className="w-full justify-start gap-2">
+        <Button onClick={onNew} variant="outline" className="w-full justify-start gap-2">
           <Plus className="size-4" />
           New chat
         </Button>
