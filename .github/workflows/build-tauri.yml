@@ -67,6 +67,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: web/src-tauri -> target
+          # 升版以作废旧缓存(之前缓存里 brotli 解析成损坏的 8.x，需重新解析到 7.x)
+          prefix-key: "v2-rust-brotli7"
 
       - name: Install frontend deps
         working-directory: web
@@ -138,6 +140,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: web/src-tauri -> target
+          # 升版以作废旧缓存(之前缓存里 brotli 解析成损坏的 8.x，需重新解析到 7.x)
+          prefix-key: "v2-rust-brotli7"
 
       - name: Install frontend deps
         working-directory: web
