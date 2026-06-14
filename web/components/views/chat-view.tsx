@@ -17,6 +17,52 @@ const completePhases = (r: RunState): RunState => ({
   ),
 });
 
+// ---- 工作台纯函数 reducer（可作用于"当前显示的 run"或"某后台会话的快照"，故抽成纯函数）----
+function addPhaseRunning(r: RunState, id: string, agent: string, label: string): RunState {
+  return { ...r, items: [...r.items, { id, kind: "phase", agent, label, status: "running", tools: [], activities: [] }] };
+}
+function markPhaseDone(r: RunState, agent: string, detail?: string, mode?: "general" | "advisory"): RunState {
+  const items = r.items.slice();
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it.kind === "phase" && it.agent === agent && it.status === "running") {
+      items[i] = { ...it, status: "done", detail: detail ?? it.detail };
+      break;
+    }
+  }
+  return { ...r, items, mode: agent === "triage" && mode ? mode : r.mode };
+}
+function addReasoning(r: RunState, agent: string, delta: string): RunState {
+  const items = r.items.slice();
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it.kind === "phase" && it.agent === agent) {
+      items[i] = { ...it, reasoning: (it.reasoning ?? "") + delta };
+      break;
+    }
+  }
+  return { ...r, items };
+}
+function attachAct(r: RunState, agent: string, act: Activity): RunState {
+  const items = r.items.slice();
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it.kind === "phase" && it.agent === agent) {
+      const activities = [...it.activities, act];
+      let tools = it.tools;
+      if (act.kind === "tool") {
+        tools = tools.slice();
+        const last = tools[tools.length - 1];
+        if (last && last.name === act.tool) tools[tools.length - 1] = { ...last, count: last.count + 1 };
+        else tools.push({ name: act.tool, count: 1 });
+      }
+      items[i] = { ...it, activities, tools };
+      break;
+    }
+  }
+  return { ...r, items };
+}
+
 let _c = 0;
 const uid = () => `${Date.now()}-${_c++}`;
 
@@ -29,113 +75,73 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
   const [mobileTab, setMobileTab] = useState<"chat" | "work">("chat"); // 手机: 聊天 / 工作台 切换
   const threadRef = useRef<string | null>(null);
   const streamIdRef = useRef<string | null>(null);
-  const runTokenRef = useRef(0); // 标识"当前拥有 UI 的对话流"；切换/新建时自增，使旧流回调失效(旧流仍后台跑完)
-  const runsRef = useRef<Record<string, RunState>>({}); // 每个会话的工作台快照，切回该会话时恢复
+  const runTokenRef = useRef(0); // 标识"当前拥有聊天区的流"；切换/新建时自增，使旧流不再写聊天消息(工作台另按会话身份路由)
+  const runsRef = useRef<Record<string, RunState>>({}); // 每个会话的工作台快照，后台流也持续更新它，切回即恢复
 
   useEffect(() => {
     listThreads().then(setThreads);
   }, []);
 
-  function attachActivity(agent: string, act: Activity) {
-    setRun((r) => {
-      const items = r.items.slice();
-      for (let i = items.length - 1; i >= 0; i--) {
-        const it = items[i];
-        if (it.kind === "phase" && it.agent === agent) {
-          const activities = [...it.activities, act];
-          let tools = it.tools;
-          if (act.kind === "tool") {
-            tools = tools.slice();
-            const last = tools[tools.length - 1];
-            if (last && last.name === act.tool) tools[tools.length - 1] = { ...last, count: last.count + 1 };
-            else tools.push({ name: act.tool, count: 1 });
-          }
-          items[i] = { ...it, activities, tools };
-          break;
-        }
-      }
-      return { ...r, items };
-    });
-  }
-
   async function handleSend(text: string) {
     if (loading) return;
-    const myToken = ++runTokenRef.current; // 本次发送的归属 token
+    const myToken = ++runTokenRef.current; // 本次发送的归属 token（仅用于聊天消息）
+    const myThread: { id: string | null } = { id: threadRef.current }; // 本流所属会话 id（新会话由 thread 事件赋值）
     const userId = uid();
     setMessages((m) => [...m, { id: userId, role: "user", content: text }]);
     setRun({ mode: undefined, items: [], report: null, active: true });
     streamIdRef.current = null;
     setLoading(true);
+
+    // 工作台更新按"会话身份"路由：本流的会话正被显示 → 写 run(实时)；否则写它自己的快照(后台也持续跑完)。
+    const updateWork = (fn: (r: RunState) => RunState) => {
+      const tid = myThread.id;
+      if (!tid || tid === threadRef.current) setRun(fn); // 活跃(或还没拿到 id 的新会话首条)
+      else runsRef.current[tid] = fn(runsRef.current[tid] ?? EMPTY_RUN); // 后台会话快照
+    };
+
     try {
       await streamChat(text, threadRef.current, (e) => {
-        if (runTokenRef.current !== myToken) return; // 已切走/新建：丢弃此流的 UI 更新
+        const isActive = runTokenRef.current === myToken; // 聊天消息只更新当前活跃流(后台答案靠切回重载)
         switch (e.type) {
           case "thread":
-            threadRef.current = e.thread_id;
-            setActiveThread(e.thread_id);
-            listThreads().then(setThreads); // 后端已登记该会话 → 立即刷新左侧历史，新对话即时出现
+            myThread.id = e.thread_id;
+            if (isActive) {
+              threadRef.current = e.thread_id;
+              setActiveThread(e.thread_id);
+              listThreads().then(setThreads); // 后端已登记 → 立即刷新左侧历史
+            }
             break;
           case "phase":
             if (e.status === "running") {
               const pid = uid();
-              const agent = e.agent;
-              const label = e.label;
-              setRun((r) => ({
-                ...r,
-                items: [...r.items, { id: pid, kind: "phase", agent, label, status: "running", tools: [], activities: [] }],
-              }));
+              updateWork((r) => addPhaseRunning(r, pid, e.agent, e.label));
             } else {
-              const agent = e.agent;
-              const detail = e.detail;
-              const mode = e.mode;
-              setRun((r) => {
-                const items = r.items.slice();
-                for (let i = items.length - 1; i >= 0; i--) {
-                  const it = items[i];
-                  if (it.kind === "phase" && it.agent === agent && it.status === "running") {
-                    items[i] = { ...it, status: "done", detail: detail ?? it.detail };
-                    break;
-                  }
-                }
-                return { ...r, items, mode: agent === "triage" && mode ? mode : r.mode };
-              });
+              updateWork((r) => markPhaseDone(r, e.agent, e.detail, e.mode));
             }
             break;
           case "route": {
             const rid = uid();
-            const label = e.label;
-            setRun((r) => ({ ...r, items: [...r.items, { id: rid, kind: "route", label }] }));
+            updateWork((r) => ({ ...r, items: [...r.items, { id: rid, kind: "route", label: e.label }] }));
             break;
           }
-          case "reasoning": {
-            const agent = e.agent;
-            const delta = e.delta;
-            setRun((r) => {
-              const items = r.items.slice();
-              for (let i = items.length - 1; i >= 0; i--) {
-                const it = items[i];
-                if (it.kind === "phase" && it.agent === agent) {
-                  items[i] = { ...it, reasoning: (it.reasoning ?? "") + delta };
-                  break;
-                }
-              }
-              return { ...r, items };
-            });
+          case "reasoning":
+            updateWork((r) => addReasoning(r, e.agent, e.delta));
             break;
-          }
           case "thought":
-            attachActivity(e.agent, { kind: "thought", text: e.text });
+            updateWork((r) => attachAct(r, e.agent, { kind: "thought", text: e.text }));
             break;
-          case "tool": {
-            attachActivity(e.agent, { kind: "tool", tool: e.tool, args: e.args });
-            const sid = streamIdRef.current;
-            if (sid) setMessages((m) => m.map((x) => (x.id === sid ? { ...x, content: "" } : x)));
+          case "tool":
+            updateWork((r) => attachAct(r, e.agent, { kind: "tool", tool: e.tool, args: e.args }));
+            if (isActive && streamIdRef.current) {
+              const sid = streamIdRef.current;
+              setMessages((m) => m.map((x) => (x.id === sid ? { ...x, content: "" } : x)));
+            }
             break;
-          }
           case "tool_result":
-            attachActivity(e.agent, { kind: "result", tool: e.tool, preview: e.preview });
+            updateWork((r) => attachAct(r, e.agent, { kind: "result", tool: e.tool, preview: e.preview }));
             break;
           case "token": {
+            if (!isActive) break;
             const tok = e.content;
             if (!streamIdRef.current) {
               const id = uid();
@@ -148,32 +154,26 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
             break;
           }
           case "message": {
+            updateWork(completePhases); // 工作台收尾(前后台都收，避免切走的会话永远转圈)
+            if (!isActive) break;
             const content = e.content;
             const sid = streamIdRef.current;
             streamIdRef.current = null;
-            if (sid) {
-              setMessages((m) => m.map((x) => (x.id === sid ? { ...x, content } : x)));
-            } else {
-              const id = uid();
-              setMessages((m) => [...m, { id, role: "assistant", content, kind: "text" }]);
-            }
-            setRun(completePhases); // 答案已出 → 立即完成所有 running 阶段(不等连接关闭)
+            if (sid) setMessages((m) => m.map((x) => (x.id === sid ? { ...x, content } : x)));
+            else setMessages((m) => [...m, { id: uid(), role: "assistant", content, kind: "text" }]);
             break;
           }
           case "final": {
             const report = e.report;
             const findings = e.findings;
-            const id = uid();
-            setRun((r) => ({ ...completePhases(r), report, findings }));
-            setMessages((m) => [...m, { id, role: "assistant", content: "", kind: "report-pointer", decision: report?.decision }]);
+            updateWork((r) => ({ ...completePhases(r), report, findings }));
+            if (!isActive) break;
+            setMessages((m) => [...m, { id: uid(), role: "assistant", content: "", kind: "report-pointer", decision: report?.decision }]);
             break;
           }
-          case "error": {
-            const id = uid();
-            const msg = e.message;
-            setMessages((m) => [...m, { id, role: "assistant", content: `Error: ${msg}`, kind: "text" }]);
+          case "error":
+            if (isActive) setMessages((m) => [...m, { id: uid(), role: "assistant", content: `Error: ${e.message}`, kind: "text" }]);
             break;
-          }
         }
       });
     } catch (err) {
@@ -182,12 +182,11 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
         setMessages((m) => [...m, { id, role: "assistant", content: `Request failed: ${String(err)}`, kind: "text" }]);
       }
     } finally {
-      // 仅当本流仍拥有 UI 时才重置 loading/run，避免后台旧流覆盖当前对话状态
+      // 该流工作台收尾(前后台都收)：把仍在 running 的阶段标记完成。
+      updateWork((r) => ({ ...completePhases(r), active: false }));
       if (runTokenRef.current === myToken) {
         setLoading(false);
         streamIdRef.current = null;
-        // 收尾兜底：把仍在 running 的阶段一律标记完成。
-        setRun((r) => ({ ...completePhases(r), active: false }));
       }
       listThreads().then(setThreads); // 历史列表不受 token 限制：任何流(含后台)结束都刷新
     }
@@ -195,7 +194,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
 
   async function selectThread(id: string) {
     if (id === activeThread) return;
-    runTokenRef.current++; // 当前流转后台，立即可切换
+    runTokenRef.current++; // 旧流转后台(不再写聊天区)，立即可切换
     setLoading(false);
     if (activeThread) runsRef.current[activeThread] = run; // 先快照当前会话的工作台
     const cached = runsRef.current[id];
@@ -211,14 +210,14 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
           kind: "text" as const,
         })),
       );
-      setRun(cached ?? EMPTY_RUN); // 恢复该会话工作台(本次会话内看过的进程/报告)
+      setRun(cached ?? EMPTY_RUN); // 恢复该会话工作台(后台流可能已把它跑完)
     } catch {
       /* ignore */
     }
   }
 
   function newChat() {
-    runTokenRef.current++; // 让正在跑的流转入后台(它会自己跑完并保存)，UI 立即可开新对话
+    runTokenRef.current++; // 让正在跑的流转入后台(它会自己跑完并把工作台快照补全)
     if (activeThread) runsRef.current[activeThread] = run; // 快照当前会话工作台，回来还能看到
     threadRef.current = null;
     setActiveThread(null);
