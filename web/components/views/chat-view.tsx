@@ -64,6 +64,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
           case "thread":
             threadRef.current = e.thread_id;
             setActiveThread(e.thread_id);
+            listThreads().then(setThreads); // 后端已登记该会话 → 立即刷新左侧历史，新对话即时出现
             break;
           case "phase":
             if (e.status === "running") {
@@ -171,13 +172,13 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
         setMessages((m) => [...m, { id, role: "assistant", content: `Request failed: ${String(err)}`, kind: "text" }]);
       }
     } finally {
-      // 仅当本流仍拥有 UI 时才收尾，避免后台旧流把当前对话的 loading/run 状态重置
+      // 仅当本流仍拥有 UI 时才重置 loading/run，避免后台旧流覆盖当前对话状态
       if (runTokenRef.current === myToken) {
         setLoading(false);
         streamIdRef.current = null;
         setRun((r) => ({ ...r, active: false }));
-        listThreads().then(setThreads);
       }
+      listThreads().then(setThreads); // 历史列表不受 token 限制：任何流(含后台)结束都刷新
     }
   }
 
