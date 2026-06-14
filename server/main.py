@@ -107,27 +107,52 @@ def chat(req: ChatReq):
     touch_thread(tid, req.message)               # 登记/更新会话注册表
 
     def gen():
+        import queue as _queue
+        import threading as _threading
         from src.utils.usage import set_thread
-        set_thread(tid)                          # 本次会话 id → 成本/工具记录按会话归属
-        # 反代理缓冲(Render 等)：先发 ~2KB SSE 注释填充，迫使代理立即开始转发流；
-        # 否则 phase/reasoning/token 这些小事件会被攒到响应结尾 → 前端"回答时工作台空、答案不逐字蹦"。
-        yield ":" + " " * 2048 + "\n\n"
+
+        PAD = ":" + " " * 2048 + "\n\n"          # SSE 注释填充(前端忽略以 ':' 开头的行)
+        # 反代理缓冲(Render 等)：先发 ~2KB 填充迫使代理立即开闸,否则 phase/reasoning/token
+        # 这些小事件会被攒到响应结尾 → 前端"回答时工作台空、答案不逐字蹦"。
+        yield PAD
         yield _sse({"type": "thread", "thread_id": tid})
-        try:
-            for ev in advisor.execute_events(req.message, thread_id=tid):
-                if ev.get("type") == "final" and ev.get("report"):
-                    try:
-                        save_report(tid, req.message, ev.get("report") or {}, ev.get("findings") or {})
-                    except Exception:
-                        logger.warning("[Reports] 保存失败")
-                yield _sse(ev)
-            # 尾部填充：把最后几个小事件(phase done / message / done)挤出代理缓冲，
-            # 否则它们会被攒到连接关闭才发 → 前端"答案已出、阶段还在转圈"。
-            yield ":" + " " * 2048 + "\n\n"
-            advisor.maybe_learn(tid)          # 阶段3b: 对话结束自动提炼(默认关)
-        except Exception as e:
-            logger.exception("[/api/chat] 流式出错")
-            yield _sse({"type": "error", "message": str(e)})
+
+        # 仅靠开头填充不够:代理还会按"空闲/小块阈值"继续缓冲,advisory 全程数分钟、中间有几十秒
+        # 无事件的大间隔,必须持续有字节流动才不被憋住。
+        # → execute_events 放后台线程产事件入队列;主流超时拉取,空档期就发心跳填充(保活 + 冲破阈值)。
+        # 注意 set_thread 的 contextvar 必须在产出线程内设置,成本才按会话归属。
+        q: "_queue.Queue" = _queue.Queue()
+        _DONE = object()
+
+        def _produce():
+            set_thread(tid)
+            try:
+                for ev in advisor.execute_events(req.message, thread_id=tid):
+                    if ev.get("type") == "final" and ev.get("report"):
+                        try:
+                            save_report(tid, req.message, ev.get("report") or {}, ev.get("findings") or {})
+                        except Exception:
+                            logger.warning("[Reports] 保存失败")
+                    q.put(ev)
+                advisor.maybe_learn(tid)          # 阶段3b: 对话结束自动提炼(默认关)
+            except Exception as e:
+                logger.exception("[/api/chat] 流式出错")
+                q.put({"type": "error", "message": str(e)})
+            finally:
+                q.put(_DONE)
+
+        _threading.Thread(target=_produce, daemon=True).start()
+
+        while True:
+            try:
+                item = q.get(timeout=5)
+            except _queue.Empty:
+                yield PAD                          # 心跳:空档期持续推字节,防代理缓冲/掐断
+                continue
+            if item is _DONE:
+                break
+            yield _sse(item)
+        yield PAD                                  # 尾部再填充,挤出最后几个事件
 
     return StreamingResponse(
         gen(),
