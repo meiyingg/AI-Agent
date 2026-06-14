@@ -177,7 +177,15 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
       if (runTokenRef.current === myToken) {
         setLoading(false);
         streamIdRef.current = null;
-        setRun((r) => ({ ...r, active: false }));
+        // 流结束即收尾：把仍在 running 的阶段一律标记完成，
+        // 避免最后一个阶段(如 Assistant)的 done 事件被代理尾部缓冲憋住/丢失而永远转圈。
+        setRun((r) => ({
+          ...r,
+          active: false,
+          items: r.items.map((it) =>
+            it.kind === "phase" && it.status === "running" ? { ...it, status: "done" } : it,
+          ),
+        }));
       }
       listThreads().then(setThreads); // 历史列表不受 token 限制：任何流(含后台)结束都刷新
     }
