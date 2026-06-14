@@ -109,6 +109,9 @@ def chat(req: ChatReq):
     def gen():
         from src.utils.usage import set_thread
         set_thread(tid)                          # 本次会话 id → 成本/工具记录按会话归属
+        # 反代理缓冲(Render 等)：先发 ~2KB SSE 注释填充，迫使代理立即开始转发流；
+        # 否则 phase/reasoning/token 这些小事件会被攒到响应结尾 → 前端"回答时工作台空、答案不逐字蹦"。
+        yield ":" + " " * 2048 + "\n\n"
         yield _sse({"type": "thread", "thread_id": tid})
         try:
             for ev in advisor.execute_events(req.message, thread_id=tid):

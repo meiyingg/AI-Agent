@@ -109,11 +109,21 @@ export function Worktable({ run, question }: { run: RunState; question: string }
           <EmptyState />
         ) : (
           <div className="space-y-4">
+            {run.active && run.items.length === 0 && !run.report && <Starting />}
             <Timeline items={run.items} />
             {run.report && <ReportCard report={run.report} question={question} findings={run.findings} />}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function Starting() {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border bg-background/60 px-3 py-2 text-sm text-muted-foreground">
+      <Loader2 className="size-4 animate-spin text-primary" />
+      Agent starting…
     </div>
   );
 }
