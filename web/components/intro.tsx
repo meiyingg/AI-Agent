@@ -72,6 +72,14 @@ export function Intro() {
         fading ? "opacity-0" : "opacity-100"
       }`}
     >
+      {/* 视频缓冲期间(尤其国内加载慢)显示小加载转圈，避免长时间白屏；视频一播(ready)即淡出。 */}
+      <div
+        className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+          ready ? "opacity-0" : "opacity-100"
+        }`}
+      >
+        <span className="size-8 animate-spin rounded-full border-2 border-zinc-200 border-t-zinc-500" />
+      </div>
       <video
         ref={videoRef}
         src="/intro.mp4"
