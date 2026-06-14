@@ -22,6 +22,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
   const threadRef = useRef<string | null>(null);
   const streamIdRef = useRef<string | null>(null);
   const runTokenRef = useRef(0); // 标识"当前拥有 UI 的对话流"；切换/新建时自增，使旧流回调失效(旧流仍后台跑完)
+  const runsRef = useRef<Record<string, RunState>>({}); // 每个会话的工作台快照，切回该会话时恢复
 
   useEffect(() => {
     listThreads().then(setThreads);
@@ -186,6 +187,8 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
     if (id === activeThread) return;
     runTokenRef.current++; // 当前流转后台，立即可切换
     setLoading(false);
+    if (activeThread) runsRef.current[activeThread] = run; // 先快照当前会话的工作台
+    const cached = runsRef.current[id];
     try {
       const detail = await getThread(id);
       threadRef.current = id;
@@ -198,7 +201,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
           kind: "text" as const,
         })),
       );
-      setRun(EMPTY_RUN);
+      setRun(cached ?? EMPTY_RUN); // 恢复该会话工作台(本次会话内看过的进程/报告)
     } catch {
       /* ignore */
     }
@@ -206,6 +209,7 @@ export function ChatView({ showWorktable = true, onNewChat }: { showWorktable?: 
 
   function newChat() {
     runTokenRef.current++; // 让正在跑的流转入后台(它会自己跑完并保存)，UI 立即可开新对话
+    if (activeThread) runsRef.current[activeThread] = run; // 快照当前会话工作台，回来还能看到
     threadRef.current = null;
     setActiveThread(null);
     setMessages([]);
